@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Tuition Class Management System** is a modern full-stack web application developed as a university group project by **Group 14**. Built using **React 19**, **Vite**, **Node.js**, **Express**, and **MongoDB**, it demonstrates core full-stack development concepts including **component-based architecture**, **REST API design**, **role-based access control**, **client-side routing**, and **AI-powered chatbot integration via the Gemini API**. The system provides dedicated dashboards for Admins, Tutors, Students, and Parents — each with tailored features for managing tuition class operations efficiently.
+The **Tuition Class Management System** is a modern full-stack web application developed as a university group project. Built using **React 19**, **Vite**, **Node.js**, **Express**, and **MongoDB**, it demonstrates core full-stack development concepts including **component-based architecture**, **REST API design**, **role-based access control**, **client-side routing**, and **AI-powered chatbot integration via the Gemini API**. The system provides dedicated dashboards for Admins, Tutors, Students, and Parents — each with tailored features for managing tuition class operations efficiently.
 
 📄 **For setup instructions, see the [Getting Started](#getting-started) section below**
 
