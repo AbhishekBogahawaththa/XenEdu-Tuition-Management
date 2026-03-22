@@ -55,6 +55,7 @@ The **Tuition Class Management System** is a modern full-stack web application d
 | Google Gemini API | AI Chatbot Integration |
 
 ---
+
 ## Project Structure
 
 ```
