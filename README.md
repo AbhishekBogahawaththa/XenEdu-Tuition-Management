@@ -45,6 +45,7 @@ The **Tuition Class Management System** is a modern full-stack web application d
 | Lucide React | Icons |
 | ESLint v9 | Code Linting |
 
+
 ### Backend
 | Technology | Usage |
 |------------|-------|
