@@ -24,9 +24,18 @@ const app = express();
 connectDB();
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 
 
 app.use('/uploads', require('express').static('uploads'));
@@ -52,5 +61,22 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route ' + req.originalUrl + ' not found' });
 });
 
+// NEW
+const https = require('https');
+const fs = require('fs');
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log('Server running on port ' + PORT));
+
+try {
+  const httpsOptions = {
+    key: fs.readFileSync('./192.168.0.72+2-key.pem'),
+    cert: fs.readFileSync('./192.168.0.72+2.pem'),
+  };
+  https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on HTTPS port ${PORT}`);
+  });
+} catch (e) {
+  // Fallback to HTTP if certs not found
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on HTTP port ${PORT}`);
+  });
+}

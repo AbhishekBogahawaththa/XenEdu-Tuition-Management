@@ -124,7 +124,6 @@ You can help with:
   return `${roleInstructions}\n\nREAL-TIME DATA:\n${context}\n\nIMPORTANT: Always respond in English unless the user writes in Sinhala or Tamil. Keep responses helpful and concise.`;
 };
 
-// Helper — clean history so it always starts with user
 const cleanHistory = (conversationHistory, limit = 10) => {
   const mapped = conversationHistory
     .slice(-limit)
@@ -132,7 +131,6 @@ const cleanHistory = (conversationHistory, limit = 10) => {
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
-
   const firstUserIndex = mapped.findIndex(m => m.role === 'user');
   if (firstUserIndex === -1) return [];
   return mapped.slice(firstUserIndex);
@@ -149,8 +147,9 @@ const chat = async (req, res) => {
 
     const systemPrompt = await buildSystemPrompt(req.user);
 
+    // ← Changed from gemini-2.5-flash to gemini-1.5-flash
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: systemPrompt,
     });
 
@@ -166,7 +165,7 @@ const chat = async (req, res) => {
   }
 };
 
-// @POST /api/ai/learn  ← student only
+// @POST /api/ai/learn
 const learn = async (req, res) => {
   try {
     const { message, subject, conversationHistory = [] } = req.body;
@@ -192,8 +191,9 @@ Economics, Accounting, Business Studies, History, Geography, ICT, English, Sinha
 
 Always be encouraging and patient. Make learning enjoyable!`;
 
-   const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+    // ← Changed from gemini-2.5-flash to gemini-1.5-flash
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
       systemInstruction: systemPrompt,
     });
 

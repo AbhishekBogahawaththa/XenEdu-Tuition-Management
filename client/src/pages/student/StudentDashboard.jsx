@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import StudentLayout from '../../layouts/StudentLayout';
 import api from '../../api/axios';
 import Barcode from 'react-barcode';
+import StudentQRCode from '../../components/common/StudentQRCode';
 import { CreditCard, BookOpen, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -21,7 +22,7 @@ const StudentDashboard = () => {
     <StudentLayout>
       <div className="space-y-6">
 
-        {/* Top row — profile + barcode */}
+        {/* Top row — profile + ID card */}
         <div className="grid grid-cols-3 gap-6">
 
           {/* Profile card */}
@@ -62,20 +63,41 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {/* Barcode card */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm flex flex-col items-center justify-center">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-3">My ID Barcode</p>
-            {data?.barcode && (
-              <Barcode
-                value={data.barcode}
-                width={1.5}
-                height={60}
-                fontSize={12}
-                margin={0}
-              />
-            )}
-            <p className="text-xs text-gray-400 mt-3 text-center">
-              Show this to teacher or cashier for scanning
+          {/* ID card — Barcode + QR side by side */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm flex flex-col items-center justify-center gap-4">
+            <p className="text-xs font-bold text-gray-400 uppercase">My Student ID</p>
+
+            <div className="flex gap-4 items-center justify-center w-full">
+              {/* Barcode */}
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-xs text-gray-400 font-semibold">Barcode</p>
+                {data?.barcode && (
+                  <Barcode
+                    value={data.barcode}
+                    width={1.2}
+                    height={50}
+                    fontSize={10}
+                    margin={0}
+                  />
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="w-px h-24 bg-gray-100" />
+
+              {/* QR Code */}
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-xs text-gray-400 font-semibold">QR Code</p>
+                <StudentQRCode
+                  admissionNumber={data?.barcode}
+                  studentName={data?.student?.name}
+                  size={80}
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center">
+              Show either code to teacher for attendance
             </p>
           </div>
         </div>
@@ -149,9 +171,7 @@ const StudentDashboard = () => {
                       <p className="text-xs text-gray-400 mt-0.5">Teacher: {cls.teacher}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold ${
-                        cls.atRisk ? 'text-red-500' : 'text-green-600'
-                      }`}>
+                      <p className={`text-sm font-bold ${cls.atRisk ? 'text-red-500' : 'text-green-600'}`}>
                         {cls.percentage}
                       </p>
                       <p className="text-xs text-gray-400">Attendance</p>
@@ -177,9 +197,7 @@ const StudentDashboard = () => {
             </div>
             <div className="divide-y divide-gray-100">
               {data?.recentPayments?.length === 0 && (
-                <div className="px-5 py-8 text-center text-gray-400 text-sm">
-                  No payments yet
-                </div>
+                <div className="px-5 py-8 text-center text-gray-400 text-sm">No payments yet</div>
               )}
               {data?.recentPayments?.map((payment, i) => (
                 <div key={i} className="px-5 py-4 flex items-center justify-between">
@@ -191,15 +209,12 @@ const StudentDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-green-600">Rs. {payment.amount?.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(payment.paidAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-xs text-gray-400">{new Date(payment.paidAt).toLocaleDateString()}</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Unpaid fees */}
             {data?.fees?.unpaidFees?.length > 0 && (
               <div className="border-t border-gray-100">
                 <div className="px-5 py-3 bg-red-50">
@@ -218,7 +233,6 @@ const StudentDashboard = () => {
             )}
           </div>
         </div>
-
       </div>
     </StudentLayout>
   );

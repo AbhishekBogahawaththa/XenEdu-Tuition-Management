@@ -1,7 +1,9 @@
-import axios from 'axios';
+﻿import axios from 'axios';
+
+const BASE_URL = 'https://' + window.location.hostname + ':5000/api';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,7 +13,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = 'Bearer ' + token;
   }
   return config;
 });
@@ -25,9 +27,12 @@ api.interceptors.response.use(
       original._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const res = await axios.post('http://localhost:5000/api/auth/refresh', { refreshToken });
+        const res = await axios.post(
+          'https://' + window.location.hostname + ':5000/api/auth/refresh',
+          { refreshToken }
+        );
         localStorage.setItem('accessToken', res.data.accessToken);
-        original.headers.Authorization = `Bearer ${res.data.accessToken}`;
+        original.headers.Authorization = 'Bearer ' + res.data.accessToken;
         return api(original);
       } catch (err) {
         localStorage.clear();

@@ -3,9 +3,10 @@ import AdminLayout from '../../layouts/AdminLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
-import { Scan, AlertCircle } from 'lucide-react';
+import { Scan, AlertCircle, Camera } from 'lucide-react';
 import { PAYMENT_METHODS } from '../../utils/constants';
 import { generateMonthlyPDF, generateDateRangePDF, generateTeacherPDF } from '../../utils/pdfReports';
+import QRScanner from '../../components/common/QRScanner';
 
 // ─── Payment Requests Tab ─────────────────────────────────────────
 const PaymentRequestsTab = () => {
@@ -46,15 +47,10 @@ const PaymentRequestsTab = () => {
     <div className="space-y-4">
       <div className="flex gap-2">
         {['pending', 'approved', 'rejected'].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
+          <button key={s} onClick={() => setFilter(s)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
               filter === s ? 'bg-[#1B6B5A] text-white' : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50'
-            }`}
-          >
-            {s}
-          </button>
+            }`}>{s}</button>
         ))}
       </div>
       <div className="space-y-3">
@@ -161,55 +157,38 @@ const ReportsTab = () => {
 
   return (
     <div className="space-y-6">
-
-      {/* Report type selector */}
       <div className="flex gap-3">
         {[
           { key: 'monthly', label: '📅 Monthly Report', desc: 'All fees by month' },
           { key: 'daterange', label: '📆 Date Range', desc: 'Payments in a period' },
           { key: 'teacher', label: '👨‍🏫 Teacher-wise', desc: 'Income per teacher' },
         ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setReportType(t.key)}
+          <button key={t.key} onClick={() => setReportType(t.key)}
             className={`flex-1 py-3 px-4 rounded-xl border-2 transition text-left ${
-              reportType === t.key
-                ? 'border-[#1B6B5A] bg-[#1B6B5A]/5'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}
-          >
-            <p className={`font-bold text-sm ${reportType === t.key ? 'text-[#1B6B5A]' : 'text-gray-700'}`}>
-              {t.label}
-            </p>
+              reportType === t.key ? 'border-[#1B6B5A] bg-[#1B6B5A]/5' : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}>
+            <p className={`font-bold text-sm ${reportType === t.key ? 'text-[#1B6B5A]' : 'text-gray-700'}`}>{t.label}</p>
             <p className="text-xs text-gray-400 mt-0.5">{t.desc}</p>
           </button>
         ))}
       </div>
 
-      {/* ── Monthly Report ── */}
       {reportType === 'monthly' && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow-sm p-5 flex items-end gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Select Month</label>
-              <input
-                type="month" value={monthlyMonth}
-                onChange={e => setMonthlyMonth(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
-              />
+              <input type="month" value={monthlyMonth} onChange={e => setMonthlyMonth(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]" />
             </div>
             {monthlyReport && (
-              <button
-                onClick={() => generateMonthlyPDF(monthlyReport, monthlyMonth)}
-                className="flex items-center gap-2 bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition"
-              >
+              <button onClick={() => generateMonthlyPDF(monthlyReport, monthlyMonth)}
+                className="flex items-center gap-2 bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition">
                 📥 Download PDF
               </button>
             )}
           </div>
-
           {loadingMonthly && <div className="text-center text-gray-400 py-8">Loading report...</div>}
-
           {monthlyReport && (
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-4">
@@ -242,13 +221,9 @@ const ReportsTab = () => {
                         <td className="px-6 py-3 font-semibold text-gray-800">{fee.studentId?.userId?.name}</td>
                         <td className="px-6 py-3 text-gray-600">{fee.classId?.name}</td>
                         <td className="px-6 py-3 font-semibold">Rs. {fee.amount?.toLocaleString()}</td>
-                        <td className="px-6 py-3 text-gray-500">
-                          {fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-GB') : 'N/A'}
-                        </td>
+                        <td className="px-6 py-3 text-gray-500">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-GB') : 'N/A'}</td>
                         <td className="px-6 py-3">
-                          <span className={`text-xs font-bold px-2 py-1 rounded-full capitalize ${statusColors[fee.status]}`}>
-                            {fee.status}
-                          </span>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full capitalize ${statusColors[fee.status]}`}>{fee.status}</span>
                         </td>
                       </tr>
                     ))}
@@ -260,7 +235,6 @@ const ReportsTab = () => {
         </div>
       )}
 
-      {/* ── Date Range Report ── */}
       {reportType === 'daterange' && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow-sm p-5">
@@ -275,16 +249,12 @@ const ReportsTab = () => {
                 <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]" />
               </div>
-              <button
-                onClick={() => fetchDateReport()}
-                disabled={!dateFrom || !dateTo || loadingDate}
-                className="bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50"
-              >
+              <button onClick={() => fetchDateReport()} disabled={!dateFrom || !dateTo || loadingDate}
+                className="bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50">
                 {loadingDate ? 'Loading...' : '🔍 Generate Report'}
               </button>
             </div>
           </div>
-
           {dateReport && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
@@ -299,21 +269,14 @@ const ReportsTab = () => {
                   </div>
                 ))}
               </div>
-
               <div className="flex justify-end">
-                <button
-                  onClick={() => generateDateRangePDF(dateReport, dateFrom, dateTo)}
-                  className="flex items-center gap-2 bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition"
-                >
+                <button onClick={() => generateDateRangePDF(dateReport, dateFrom, dateTo)}
+                  className="flex items-center gap-2 bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition">
                   📥 Download PDF
                 </button>
               </div>
-
-              {/* Daily breakdown */}
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h4 className="font-bold text-gray-700">Daily Breakdown</h4>
-                </div>
+                <div className="px-6 py-4 border-b border-gray-100"><h4 className="font-bold text-gray-700">Daily Breakdown</h4></div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -333,12 +296,8 @@ const ReportsTab = () => {
                   </tbody>
                 </table>
               </div>
-
-              {/* Payment details */}
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h4 className="font-bold text-gray-700">All Payments</h4>
-                </div>
+                <div className="px-6 py-4 border-b border-gray-100"><h4 className="font-bold text-gray-700">All Payments</h4></div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -353,9 +312,7 @@ const ReportsTab = () => {
                   <tbody>
                     {dateReport.payments?.map((p, i) => (
                       <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-6 py-3 text-gray-500 text-xs">
-                          {new Date(p.paidAt).toLocaleDateString('en-GB')}
-                        </td>
+                        <td className="px-6 py-3 text-gray-500 text-xs">{new Date(p.paidAt).toLocaleDateString('en-GB')}</td>
                         <td className="px-6 py-3 font-semibold text-gray-800">{p.studentId?.userId?.name}</td>
                         <td className="px-6 py-3 text-gray-600">{p.classId?.name}</td>
                         <td className="px-6 py-3 capitalize text-gray-500">{p.method?.replace('_', ' ')}</td>
@@ -364,11 +321,7 @@ const ReportsTab = () => {
                       </tr>
                     ))}
                     {dateReport.payments?.length === 0 && (
-                      <tr>
-                        <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
-                          No payments in this period
-                        </td>
-                      </tr>
+                      <tr><td colSpan="6" className="px-6 py-8 text-center text-gray-400">No payments in this period</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -378,7 +331,6 @@ const ReportsTab = () => {
         </div>
       )}
 
-      {/* ── Teacher-wise Report ── */}
       {reportType === 'teacher' && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow-sm p-5">
@@ -389,9 +341,7 @@ const ReportsTab = () => {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]">
                   <option value="">Choose teacher...</option>
                   {teachers?.teachers?.map(t => (
-                    <option key={t._id} value={t._id}>
-                      {t.userId?.name} — {t.subjectExpertise?.join(', ')}
-                    </option>
+                    <option key={t._id} value={t._id}>{t.userId?.name} — {t.subjectExpertise?.join(', ')}</option>
                   ))}
                 </select>
               </div>
@@ -400,19 +350,14 @@ const ReportsTab = () => {
                 <input type="month" value={teacherMonth} onChange={e => setTeacherMonth(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]" />
               </div>
-              <button
-                onClick={() => fetchTeacherReport()}
-                disabled={!teacherId || loadingTeacher}
-                className="bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50"
-              >
+              <button onClick={() => fetchTeacherReport()} disabled={!teacherId || loadingTeacher}
+                className="bg-[#1B6B5A] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50">
                 {loadingTeacher ? 'Loading...' : '🔍 Generate Report'}
               </button>
             </div>
           </div>
-
           {teacherReport && (
             <div className="space-y-4">
-              {/* Teacher banner */}
               <div className="bg-[#1B6B5A] rounded-xl p-5 text-white flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">
@@ -421,20 +366,14 @@ const ReportsTab = () => {
                   <div>
                     <h3 className="font-bold text-lg">{teacherReport.teacher?.name}</h3>
                     <p className="text-white/70 text-sm">{teacherReport.teacher?.email}</p>
-                    <p className="text-white/60 text-xs mt-0.5">
-                      {teacherReport.teacher?.subjects?.join(' • ')}
-                    </p>
+                    <p className="text-white/60 text-xs mt-0.5">{teacherReport.teacher?.subjects?.join(' • ')}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => generateTeacherPDF(teacherReport)}
-                  className="flex items-center gap-2 bg-white text-[#1B6B5A] px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-gray-100 transition"
-                >
+                <button onClick={() => generateTeacherPDF(teacherReport)}
+                  className="flex items-center gap-2 bg-white text-[#1B6B5A] px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-gray-100 transition">
                   📥 Download PDF
                 </button>
               </div>
-
-              {/* Summary cards */}
               <div className="grid grid-cols-4 gap-4">
                 {[
                   { label: 'Classes', value: teacherReport.totalClasses?.toString(), color: 'text-gray-800' },
@@ -448,8 +387,6 @@ const ReportsTab = () => {
                   </div>
                 ))}
               </div>
-
-              {/* Class breakdown table */}
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
                   <h4 className="font-bold text-gray-700">Class-wise Breakdown — {teacherReport.month}</h4>
@@ -483,9 +420,7 @@ const ReportsTab = () => {
                             cls.collectionRate >= 80 ? 'bg-green-100 text-green-700'
                             : cls.collectionRate >= 50 ? 'bg-yellow-100 text-yellow-700'
                             : 'bg-red-100 text-red-600'
-                          }`}>
-                            {cls.collectionRate}%
-                          </span>
+                          }`}>{cls.collectionRate}%</span>
                         </td>
                       </tr>
                     ))}
@@ -495,18 +430,10 @@ const ReportsTab = () => {
                       <td className="px-6 py-3 font-bold text-gray-800">TOTAL</td>
                       <td className="px-6 py-3"></td>
                       <td className="px-6 py-3"></td>
-                      <td className="px-6 py-3 font-bold text-gray-800">
-                        Rs. {teacherReport.totalGenerated?.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 font-bold text-green-600">
-                        Rs. {teacherReport.totalCollected?.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 font-bold text-red-500">
-                        Rs. {(teacherReport.totalGenerated - teacherReport.totalCollected)?.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 font-bold text-[#1B6B5A]">
-                        {teacherReport.collectionRate}%
-                      </td>
+                      <td className="px-6 py-3 font-bold text-gray-800">Rs. {teacherReport.totalGenerated?.toLocaleString()}</td>
+                      <td className="px-6 py-3 font-bold text-green-600">Rs. {teacherReport.totalCollected?.toLocaleString()}</td>
+                      <td className="px-6 py-3 font-bold text-red-500">Rs. {(teacherReport.totalGenerated - teacherReport.totalCollected)?.toLocaleString()}</td>
+                      <td className="px-6 py-3 font-bold text-[#1B6B5A]">{teacherReport.collectionRate}%</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -528,6 +455,7 @@ const AdminFees = () => {
   const [selectedFee, setSelectedFee] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [generateMonth, setGenerateMonth] = useState('');
+  const [showScanner, setShowScanner] = useState(false); // ← NEW
 
   const { data: outstanding, isLoading: loadingOutstanding } = useQuery({
     queryKey: ['outstanding'],
@@ -567,6 +495,19 @@ const AdminFees = () => {
     }
   };
 
+  // ← NEW
+  const handleQRScan = async (admissionNumber) => {
+    setShowScanner(false);
+    setScanValue(admissionNumber);
+    try {
+      const res = await api.get(`/scan/${admissionNumber.trim()}`);
+      setScannedStudent(res.data);
+      toast.success(`Student found: ${res.data.student.name}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Student not found');
+    }
+  };
+
   const statusColors = {
     unpaid: 'bg-red-100 text-red-600',
     paid: 'bg-green-100 text-green-700',
@@ -578,24 +519,28 @@ const AdminFees = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
 
-        {/* Header */}
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={() => setShowScanner(false)}
+          title="Scan Student ID"
+        />
+      )}
+
+      <div className="space-y-6">
         <div>
           <h2 className="text-xl font-bold text-gray-800">Fees & Payments</h2>
           <p className="text-sm text-gray-400 mt-1">Manage student fee collection</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm w-fit flex-wrap">
           {tabs.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+            <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
                 activeTab === tab ? 'bg-[#1B6B5A] text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
+              }`}>
               {tab === 'payment requests' ? '💳 Payment Requests'
                : tab === 'reports' ? '📊 Reports'
                : tab}
@@ -609,9 +554,7 @@ const AdminFees = () => {
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <p className="text-gray-500 text-sm">Total Outstanding</p>
-                <p className="text-2xl font-bold text-red-600 mt-1">
-                  Rs. {outstanding?.totalOutstanding?.toLocaleString() ?? '...'}
-                </p>
+                <p className="text-2xl font-bold text-red-600 mt-1">Rs. {outstanding?.totalOutstanding?.toLocaleString() ?? '...'}</p>
               </div>
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <p className="text-gray-500 text-sm">Unpaid Records</p>
@@ -638,9 +581,7 @@ const AdminFees = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {loadingOutstanding && (
-                    <tr><td colSpan="7" className="px-6 py-8 text-center text-gray-400">Loading...</td></tr>
-                  )}
+                  {loadingOutstanding && <tr><td colSpan="7" className="px-6 py-8 text-center text-gray-400">Loading...</td></tr>}
                   {outstanding?.fees?.map(fee => (
                     <tr key={fee._id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-4">
@@ -650,13 +591,9 @@ const AdminFees = () => {
                       <td className="px-6 py-4 text-gray-600">{fee.classId?.name}</td>
                       <td className="px-6 py-4 text-gray-500">{fee.month}</td>
                       <td className="px-6 py-4 font-semibold text-gray-800">Rs. {fee.amount?.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {new Date(fee.dueDate).toLocaleDateString()}
-                      </td>
+                      <td className="px-6 py-4 text-gray-500">{new Date(fee.dueDate).toLocaleDateString()}</td>
                       <td className="px-6 py-4">
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full capitalize ${statusColors[fee.status]}`}>
-                          {fee.status}
-                        </span>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full capitalize ${statusColors[fee.status]}`}>{fee.status}</span>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-gray-600 text-xs">{fee.studentId?.parentId?.userId?.name}</p>
@@ -673,11 +610,11 @@ const AdminFees = () => {
           </div>
         )}
 
-        {/* Scan & Pay Tab */}
+        {/* Scan & Pay Tab — with Camera button */}
         {activeTab === 'scan & pay' && (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-base font-bold text-gray-800 mb-4">Scan Student Barcode</h3>
+              <h3 className="text-base font-bold text-gray-800 mb-4">Scan Student ID</h3>
               <div className="flex gap-3">
                 <div className="relative flex-1">
                   <Scan size={16} className="absolute left-3 top-3 text-gray-400" />
@@ -693,6 +630,11 @@ const AdminFees = () => {
                   className="bg-[#1B6B5A] text-white px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition">
                   Search
                 </button>
+                {/* ← NEW Camera button */}
+                <button onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-2 bg-[#00B894] text-white px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#00a382] transition">
+                  <Camera size={16} /> 📷 Camera
+                </button>
               </div>
             </div>
 
@@ -704,23 +646,18 @@ const AdminFees = () => {
                   </div>
                   <div>
                     <p className="font-bold text-gray-800 text-lg">{scannedStudent.student.name}</p>
-                    <p className="text-gray-400 text-sm">
-                      {scannedStudent.student.admissionNumber} • {scannedStudent.student.grade}
-                    </p>
+                    <p className="text-gray-400 text-sm">{scannedStudent.student.admissionNumber} • {scannedStudent.student.grade}</p>
                   </div>
                   <div className="ml-auto text-right">
                     <p className="text-sm text-gray-500">Outstanding</p>
-                    <p className="text-xl font-bold text-red-600">
-                      Rs. {scannedStudent.outstandingFees.total.toLocaleString()}
-                    </p>
+                    <p className="text-xl font-bold text-red-600">Rs. {scannedStudent.outstandingFees.total.toLocaleString()}</p>
                   </div>
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-700 mb-3">Select class to pay:</h4>
                   <div className="space-y-3">
                     {scannedStudent.enrolledClasses.map(cls => (
-                      <div
-                        key={cls.classId}
+                      <div key={cls.classId}
                         onClick={() => !cls.feePaidThisMonth && setSelectedFee(cls)}
                         className={`border rounded-xl p-4 cursor-pointer transition ${
                           selectedFee?.classId === cls.classId
@@ -728,22 +665,17 @@ const AdminFees = () => {
                             : cls.feePaidThisMonth
                             ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
                             : 'border-gray-200 hover:border-[#1B6B5A] hover:bg-gray-50'
-                        }`}
-                      >
+                        }`}>
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="font-semibold text-gray-800">{cls.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {cls.subject} • {cls.hall} • {cls.schedule?.dayOfWeek}
-                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{cls.subject} • {cls.hall} • {cls.schedule?.dayOfWeek}</p>
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-gray-800">Rs. {cls.monthlyFee?.toLocaleString()}</p>
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               cls.feePaidThisMonth ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                            }`}>
-                              {cls.feePaidThisMonth ? 'Paid' : 'Unpaid'}
-                            </span>
+                            }`}>{cls.feePaidThisMonth ? 'Paid' : 'Unpaid'}</span>
                           </div>
                         </div>
                       </div>
@@ -765,8 +697,7 @@ const AdminFees = () => {
                     <button
                       onClick={() => payMutation.mutate({ feeRecordId: selectedFee.feeRecordId, method: paymentMethod })}
                       disabled={payMutation.isPending || !selectedFee.feeRecordId}
-                      className="w-full bg-[#1B6B5A] text-white py-3 rounded-xl font-bold hover:bg-[#155a4a] transition disabled:opacity-50"
-                    >
+                      className="w-full bg-[#1B6B5A] text-white py-3 rounded-xl font-bold hover:bg-[#155a4a] transition disabled:opacity-50">
                       {payMutation.isPending ? 'Processing...' : `Confirm Payment — Rs. ${selectedFee.monthlyFee?.toLocaleString()}`}
                     </button>
                     {!selectedFee.feeRecordId && (
@@ -781,36 +712,28 @@ const AdminFees = () => {
           </div>
         )}
 
-        {/* Payment Requests Tab */}
         {activeTab === 'payment requests' && <PaymentRequestsTab />}
 
-        {/* Generate Tab */}
         {activeTab === 'generate' && (
           <div className="bg-white rounded-xl shadow-sm p-6 max-w-md">
             <h3 className="text-base font-bold text-gray-800 mb-2">Generate Monthly Fees</h3>
-            <p className="text-sm text-gray-400 mb-5">
-              Create fee records for all enrolled students for the selected month.
-            </p>
+            <p className="text-sm text-gray-400 mb-5">Create fee records for all enrolled students for the selected month.</p>
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Month</label>
                 <input type="month" value={generateMonth} onChange={e => setGenerateMonth(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]" />
               </div>
-              <button
-                onClick={() => generateMutation.mutate(generateMonth)}
+              <button onClick={() => generateMutation.mutate(generateMonth)}
                 disabled={!generateMonth || generateMutation.isPending}
-                className="w-full bg-[#1B6B5A] text-white py-3 rounded-xl font-bold hover:bg-[#155a4a] transition disabled:opacity-50"
-              >
+                className="w-full bg-[#1B6B5A] text-white py-3 rounded-xl font-bold hover:bg-[#155a4a] transition disabled:opacity-50">
                 {generateMutation.isPending ? 'Generating...' : 'Generate Fees'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Reports Tab */}
         {activeTab === 'reports' && <ReportsTab />}
-
       </div>
     </AdminLayout>
   );

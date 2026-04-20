@@ -3,9 +3,10 @@ import TeacherLayout from '../../layouts/TeacherLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import QRScanner from '../../components/common/QRScanner';
 import {
   CheckCircle, XCircle, Clock, Scan,
-  Users, RefreshCw, Search
+  Users, RefreshCw, Search, Camera,
 } from 'lucide-react';
 
 const TeacherAttendance = () => {
@@ -15,9 +16,8 @@ const TeacherAttendance = () => {
   const [scanValue, setScanValue] = useState('');
   const [markStatus, setMarkStatus] = useState('present');
   const [attendanceMap, setAttendanceMap] = useState({});
+  const [showScanner, setShowScanner] = useState(false);
   const scanInputRef = useRef(null);
-
-  // ── Queries ──────────────────────────────────────────────────────
 
   const { data: myClasses } = useQuery({
     queryKey: ['teacher-classes'],
@@ -39,25 +39,21 @@ const TeacherAttendance = () => {
     queryFn: async () => {
       const session = sessions?.sessions?.find(s => s._id === selectedSessionId);
       const classId = session?.classId?._id || session?.classId || selectedClassId;
-
       const [clsRes, attRes] = await Promise.all([
         api.get(`/classes/${classId}`),
         api.get(`/attendance/session/${selectedSessionId}`),
       ]);
-
       const existingMap = {};
       attRes.data.attendance?.forEach(a => {
         const id = String(a.studentId?._id || a.studentId);
         existingMap[id] = a.status;
       });
-
       const students = clsRes.data.class?.enrolledStudents || [];
       return { students, existingMap };
     },
     enabled: !!selectedSessionId,
   });
 
-  // Set attendance map when students load
   useEffect(() => {
     if (sessionStudents) {
       const map = {};
@@ -68,19 +64,13 @@ const TeacherAttendance = () => {
     }
   }, [sessionStudents]);
 
-  // ── Mutations ────────────────────────────────────────────────────
-
   const markByBarcodeMutation = useMutation({
     mutationFn: ({ admissionNumber, status }) =>
-      api.post('/attendance/scan', {
-        admissionNumber,
-        sessionId: selectedSessionId,
-        status,
-      }),
+      api.post('/attendance/scan', { admissionNumber, sessionId: selectedSessionId, status }),
     onSuccess: (res) => {
       const studentId = String(res.data.attendance?.studentId);
       setAttendanceMap(prev => ({ ...prev, [studentId]: markStatus }));
-      toast.success(`${res.data.studentName} marked as ${markStatus}`);
+      toast.success(`✅ ${res.data.studentName} marked as ${markStatus}`);
       setScanValue('');
       scanInputRef.current?.focus();
       queryClient.invalidateQueries(['session-students-teacher', selectedSessionId]);
@@ -107,18 +97,16 @@ const TeacherAttendance = () => {
     onError: err => toast.error(err.response?.data?.message || 'Failed to save'),
   });
 
-  // ── Helpers ──────────────────────────────────────────────────────
-
   const handleScan = () => {
     if (!scanValue.trim()) return;
-    if (!selectedSessionId) {
-      toast.error('Please select a session first');
-      return;
-    }
-    markByBarcodeMutation.mutate({
-      admissionNumber: scanValue.trim(),
-      status: markStatus,
-    });
+    if (!selectedSessionId) { toast.error('Please select a session first'); return; }
+    markByBarcodeMutation.mutate({ admissionNumber: scanValue.trim(), status: markStatus });
+  };
+
+  const handleQRScan = (admissionNumber) => {
+    setShowScanner(false);
+    if (!selectedSessionId) { toast.error('Select a session first'); return; }
+    markByBarcodeMutation.mutate({ admissionNumber, status: markStatus });
   };
 
   const handleManualMark = (studentId, status) => {
@@ -127,9 +115,7 @@ const TeacherAttendance = () => {
 
   const markAll = (status) => {
     const map = {};
-    sessionStudents?.students?.forEach(s => {
-      map[String(s._id)] = status;
-    });
+    sessionStudents?.students?.forEach(s => { map[String(s._id)] = status; });
     setAttendanceMap(map);
     toast.success(`All marked as ${status}`);
   };
@@ -146,9 +132,7 @@ const TeacherAttendance = () => {
     if (!d) return 'Unknown date';
     const parsed = new Date(d);
     if (isNaN(parsed.getTime())) return 'Invalid date';
-    return `${parsed.toLocaleDateString('en-GB', {
-      weekday: 'short', day: 'numeric', month: 'short',
-    })} — ${session.startTime}${session.endTime ? ` - ${session.endTime}` : ''} (${session.status})`;
+    return `${parsed.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} — ${session.startTime}${session.endTime ? ` - ${session.endTime}` : ''} (${session.status})`;
   };
 
   const statusConfig = {
@@ -161,32 +145,32 @@ const TeacherAttendance = () => {
     <TeacherLayout>
       <div className="space-y-6">
 
-        {/* Header */}
+        {/* QR Scanner Modal */}
+        {showScanner && (
+          <QRScanner
+            onScan={handleQRScan}
+            onClose={() => setShowScanner(false)}
+            title="Mark Attendance"
+          />
+        )}
+
         <div>
           <h2 className="text-xl font-bold text-gray-800">Mark Attendance</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Scan student barcodes or mark manually
-          </p>
+          <p className="text-sm text-gray-400 mt-1">Scan student barcodes or mark manually</p>
         </div>
 
         <div className="grid grid-cols-3 gap-6">
 
-          {/* Left panel — controls */}
+          {/* Left panel */}
           <div className="space-y-4">
 
             {/* Class + Session selector */}
             <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">
-                  Select Class
-                </label>
+                <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Class</label>
                 <select
                   value={selectedClassId}
-                  onChange={e => {
-                    setSelectedClassId(e.target.value);
-                    setSelectedSessionId('');
-                    setAttendanceMap({});
-                  }}
+                  onChange={e => { setSelectedClassId(e.target.value); setSelectedSessionId(''); setAttendanceMap({}); }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
                 >
                   <option value="">Choose a class...</option>
@@ -198,59 +182,46 @@ const TeacherAttendance = () => {
 
               {selectedClassId && (
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">
-                    Select Session
-                  </label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Session</label>
                   <select
                     value={selectedSessionId}
-                    onChange={e => {
-                      setSelectedSessionId(e.target.value);
-                      setAttendanceMap({});
-                    }}
+                    onChange={e => { setSelectedSessionId(e.target.value); setAttendanceMap({}); }}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
                   >
                     <option value="">Choose session...</option>
-                    {sessions?.sessions
-                      ?.filter(s => s.status !== 'cancelled')
-                      ?.map(session => (
-                        <option key={session._id} value={session._id}>
-                          {getSessionLabel(session)}
-                        </option>
-                      ))}
+                    {sessions?.sessions?.filter(s => s.status !== 'cancelled')?.map(session => (
+                      <option key={session._id} value={session._id}>{getSessionLabel(session)}</option>
+                    ))}
                   </select>
                 </div>
               )}
             </div>
 
-            {/* Barcode scan */}
+            {/* Scan section */}
             {selectedSessionId && (
               <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
                 <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
                   <Scan size={16} className="text-[#1B6B5A]" />
-                  Scan Barcode
+                  Scan Student ID
                 </h3>
 
-                {/* Mark status selector */}
+                {/* Status selector */}
                 <div className="grid grid-cols-3 gap-2">
                   {['present', 'absent', 'late'].map(s => {
                     const config = statusConfig[s];
                     return (
-                      <button
-                        key={s}
-                        onClick={() => setMarkStatus(s)}
+                      <button key={s} onClick={() => setMarkStatus(s)}
                         className={`py-2 rounded-lg text-xs font-semibold border transition ${
                           markStatus === s
                             ? `${config.color} text-white border-transparent`
                             : `${config.bg} ${config.text} ${config.border}`
                         }`}
-                      >
-                        {config.label}
-                      </button>
+                      >{config.label}</button>
                     );
                   })}
                 </div>
 
-                {/* Scan input */}
+                {/* Text input */}
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-3 text-gray-400" />
                   <input
@@ -265,6 +236,7 @@ const TeacherAttendance = () => {
                   />
                 </div>
 
+                {/* Mark button */}
                 <button
                   onClick={handleScan}
                   disabled={!scanValue.trim() || markByBarcodeMutation.isPending}
@@ -274,10 +246,24 @@ const TeacherAttendance = () => {
                     : 'bg-yellow-500 hover:bg-yellow-600'
                   }`}
                 >
-                  {markByBarcodeMutation.isPending
-                    ? 'Marking...'
-                    : `Mark as ${markStatus}`}
+                  {markByBarcodeMutation.isPending ? 'Marking...' : `Mark as ${markStatus}`}
                 </button>
+
+                {/* Camera scanner button */}
+                <button
+                  onClick={() => {
+                    if (!selectedSessionId) { toast.error('Select a session first'); return; }
+                    setShowScanner(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-[#1B6B5A] text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition"
+                >
+                  <Camera size={16} />
+                  📷 Open Camera Scanner
+                </button>
+
+                <p className="text-xs text-gray-400 text-center">
+                  Use camera to scan QR code or barcode
+                </p>
               </div>
             )}
 
@@ -307,9 +293,7 @@ const TeacherAttendance = () => {
               <div className="bg-white rounded-xl shadow-sm h-full min-h-64 flex flex-col items-center justify-center text-gray-400 p-12">
                 <Users size={48} className="mb-3 opacity-20" />
                 <p className="font-semibold text-gray-500">Select a class and session</p>
-                <p className="text-sm mt-1 text-gray-400 text-center">
-                  Choose a class and session to start marking attendance
-                </p>
+                <p className="text-sm mt-1 text-gray-400 text-center">Choose a class and session to start marking attendance</p>
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -318,9 +302,7 @@ const TeacherAttendance = () => {
                 <div className="bg-gradient-to-r from-[#1B6B5A] to-[#00B894] px-6 py-4 text-white">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">
-                        Session
-                      </p>
+                      <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Session</p>
                       <h3 className="font-bold text-lg">
                         {selectedSession && (() => {
                           const d = selectedSession.sessionDate || selectedSession.date;
@@ -339,34 +321,23 @@ const TeacherAttendance = () => {
                     </div>
                   </div>
 
-                  {/* Live stats */}
                   {totalStudents > 0 && (
                     <div className="flex gap-5 mt-3 pt-3 border-t border-white/20">
-                      <div className="text-center">
-                        <p className="text-lg font-bold">{totalStudents}</p>
-                        <p className="text-white/60 text-xs">Total</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-green-300">{presentCount}</p>
-                        <p className="text-white/60 text-xs">Present</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-red-300">{absentCount}</p>
-                        <p className="text-white/60 text-xs">Absent</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-yellow-300">{lateCount}</p>
-                        <p className="text-white/60 text-xs">Late</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-white/60">{unmarkedCount}</p>
-                        <p className="text-white/60 text-xs">Unmarked</p>
-                      </div>
+                      {[
+                        { label: 'Total', value: totalStudents, color: 'text-white' },
+                        { label: 'Present', value: presentCount, color: 'text-green-300' },
+                        { label: 'Absent', value: absentCount, color: 'text-red-300' },
+                        { label: 'Late', value: lateCount, color: 'text-yellow-300' },
+                        { label: 'Unmarked', value: unmarkedCount, color: 'text-white/60' },
+                      ].map(stat => (
+                        <div key={stat.label} className="text-center">
+                          <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+                          <p className="text-white/60 text-xs">{stat.label}</p>
+                        </div>
+                      ))}
                       <div className="text-center ml-auto">
                         <p className="text-lg font-bold">
-                          {totalStudents > 0
-                            ? Math.round((presentCount + lateCount) / totalStudents * 100)
-                            : 0}%
+                          {totalStudents > 0 ? Math.round((presentCount + lateCount) / totalStudents * 100) : 0}%
                         </p>
                         <p className="text-white/60 text-xs">Attendance</p>
                       </div>
@@ -391,10 +362,8 @@ const TeacherAttendance = () => {
                       {sessionStudents?.students?.map((student, i) => {
                         const status = attendanceMap[String(student._id)];
                         const config = status ? statusConfig[status] : null;
-
                         return (
-                          <div
-                            key={student._id}
+                          <div key={student._id}
                             className={`px-6 py-3 flex items-center justify-between transition ${
                               status === 'present' ? 'bg-green-50/50'
                               : status === 'absent' ? 'bg-red-50/50'
@@ -403,14 +372,12 @@ const TeacherAttendance = () => {
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              {/* Status indicator */}
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                 status === 'present' ? 'bg-green-500'
                                 : status === 'absent' ? 'bg-red-500'
                                 : status === 'late' ? 'bg-yellow-500'
                                 : 'bg-gray-300'
                               }`} />
-
                               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
                                 status === 'present' ? 'bg-green-500'
                                 : status === 'absent' ? 'bg-red-400'
@@ -419,18 +386,11 @@ const TeacherAttendance = () => {
                               }`}>
                                 {student.userId?.name?.charAt(0)?.toUpperCase() || '?'}
                               </div>
-
                               <div>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                  {student.userId?.name || 'Unknown'}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {student.admissionNumber || `Student ${i + 1}`}
-                                </p>
+                                <p className="font-semibold text-gray-800 text-sm">{student.userId?.name || 'Unknown'}</p>
+                                <p className="text-xs text-gray-400">{student.admissionNumber || `Student ${i + 1}`}</p>
                               </div>
                             </div>
-
-                            {/* Status buttons */}
                             <div className="flex items-center gap-2">
                               {status && (
                                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${config?.bg} ${config?.text} mr-1`}>
@@ -440,13 +400,10 @@ const TeacherAttendance = () => {
                               {['present', 'absent', 'late'].map(s => {
                                 const c = statusConfig[s];
                                 return (
-                                  <button
-                                    key={s}
+                                  <button key={s}
                                     onClick={() => handleManualMark(String(student._id), s)}
                                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                                      status === s
-                                        ? `${c.color} text-white`
-                                        : `${c.bg} ${c.text} hover:opacity-80`
+                                      status === s ? `${c.color} text-white` : `${c.bg} ${c.text} hover:opacity-80`
                                     }`}
                                     title={c.label}
                                   >
@@ -460,7 +417,6 @@ const TeacherAttendance = () => {
                       })}
                     </div>
 
-                    {/* Save button */}
                     <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
                       <p className="text-sm text-gray-500">
                         <span className="text-green-600 font-semibold">{presentCount} present</span>
@@ -468,12 +424,7 @@ const TeacherAttendance = () => {
                         <span className="text-red-500 font-semibold">{absentCount} absent</span>
                         {' • '}
                         <span className="text-yellow-600 font-semibold">{lateCount} late</span>
-                        {unmarkedCount > 0 && (
-                          <>
-                            {' • '}
-                            <span className="text-gray-400 font-semibold">{unmarkedCount} unmarked</span>
-                          </>
-                        )}
+                        {unmarkedCount > 0 && <><span className="text-gray-400"> • {unmarkedCount} unmarked</span></>}
                       </p>
                       <button
                         onClick={() => saveAttendanceMutation.mutate()}
@@ -481,15 +432,9 @@ const TeacherAttendance = () => {
                         className="flex items-center gap-2 bg-[#1B6B5A] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#155a4a] transition disabled:opacity-50"
                       >
                         {saveAttendanceMutation.isPending ? (
-                          <>
-                            <RefreshCw size={16} className="animate-spin" />
-                            Saving...
-                          </>
+                          <><RefreshCw size={16} className="animate-spin" /> Saving...</>
                         ) : (
-                          <>
-                            <CheckCircle size={16} />
-                            Save & Complete Session
-                          </>
+                          <><CheckCircle size={16} /> Save & Complete Session</>
                         )}
                       </button>
                     </div>
