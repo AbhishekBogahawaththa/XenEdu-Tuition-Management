@@ -8,6 +8,7 @@ The **Tuition Class Management System** is a modern full-stack web application d
 
 ### Key Features
 
+
 - **Role-Based Access**:
   - **Admin**: Full control over students, tutors, subjects, fees, and enrollment.
   - **Tutor**: Access to personal portal with attendance, study materials, and messages.
