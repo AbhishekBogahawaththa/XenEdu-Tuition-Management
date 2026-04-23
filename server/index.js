@@ -66,16 +66,24 @@ const https = require('https');
 const fs = require('fs');
 const PORT = process.env.PORT || 5000;
 
-try {
-  const httpsOptions = {
-    key: fs.readFileSync('./192.168.0.72+2-key.pem'),
-    cert: fs.readFileSync('./192.168.0.72+2.pem'),
-  };
-  https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on HTTPS port ${PORT}`);
-  });
-} catch (e) {
-  // Fallback to HTTP if certs not found
+// Use HTTP in development, HTTPS in production
+if (process.env.NODE_ENV === 'production') {
+  try {
+    const httpsOptions = {
+      key: fs.readFileSync('./192.168.0.72+2-key.pem'),
+      cert: fs.readFileSync('./192.168.0.72+2.pem'),
+    };
+    https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on HTTPS port ${PORT}`);
+    });
+  } catch (e) {
+    // Fallback to HTTP if certs not found
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on HTTP port ${PORT}`);
+    });
+  }
+} else {
+  // Use HTTP for development
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on HTTP port ${PORT}`);
   });

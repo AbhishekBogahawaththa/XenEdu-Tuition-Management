@@ -8,18 +8,18 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/registrations', label: 'Registrations', icon: UserCheck },
-  { path: '/admin/students', label: 'Students', icon: Users },
-  { path: '/admin/teachers', label: 'Teachers', icon: GraduationCap },
-  { path: '/admin/classes', label: 'Classes', icon: BookOpen },
-  { path: '/admin/attendance', label: 'Attendance', icon: ClipboardList },
-  { path: '/admin/fees', label: 'Fees & Payments', icon: CreditCard },
+  { path: '/admin',               label: 'Dashboard',     icon: LayoutDashboard },
+  { path: '/admin/registrations', label: 'Registrations', icon: UserCheck       },
+  { path: '/admin/students',      label: 'Students',      icon: Users           },
+  { path: '/admin/teachers',      label: 'Teachers',      icon: GraduationCap   },
+  { path: '/admin/classes',       label: 'Classes',       icon: BookOpen        },
+  { path: '/admin/attendance',    label: 'Attendance',    icon: ClipboardList   },
+  { path: '/admin/fees',          label: 'Fees & Payments', icon: CreditCard    },
 ];
 
 const AdminLayout = ({ children }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location  = useLocation();
+  const navigate  = useNavigate();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -32,21 +32,21 @@ const AdminLayout = ({ children }) => {
   return (
     <div className="flex h-screen bg-gray-100 font-roboto overflow-hidden">
 
-      {/* Sidebar */}
-      <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-[#1B6B5A] flex flex-col transition-all duration-300 flex-shrink-0 shadow-lg`}>
+      {/* ── Sidebar ── */}
+      <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-[#0d6b7a] flex flex-col transition-all duration-300 flex-shrink-0 shadow-lg`}>
 
         {/* Logo */}
         <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <School size={22} className="text-[#F5C518]" />
+              <School size={22} className="text-[#F5C518]"/>
               <span className="text-[#F5C518] font-bold text-xl">XenEdu</span>
             </div>
           )}
-          {collapsed && <School size={22} className="text-[#F5C518] mx-auto" />}
+          {collapsed && <School size={22} className="text-[#F5C518] mx-auto"/>}
           {!collapsed && (
             <button onClick={() => setCollapsed(true)} className="text-white/60 hover:text-white">
-              <Menu size={20} />
+              <Menu size={20}/>
             </button>
           )}
         </div>
@@ -54,7 +54,7 @@ const AdminLayout = ({ children }) => {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const Icon = item.icon;
+            const Icon     = item.icon;
             const isActive = location.pathname === item.path;
             return (
               <Link
@@ -66,7 +66,7 @@ const AdminLayout = ({ children }) => {
                     : 'text-white/70 hover:bg-white/10 hover:text-white border-l-4 border-transparent'
                   }`}
               >
-                <Icon size={18} />
+                <Icon size={18}/>
                 {!collapsed && <span>{item.label}</span>}
               </Link>
             );
@@ -79,7 +79,7 @@ const AdminLayout = ({ children }) => {
             <div className="px-3 py-2 mb-2">
               <p className="text-white font-semibold text-sm truncate">{user?.name}</p>
               <p className="text-white/50 text-xs truncate">{user?.email}</p>
-              <span className="mt-1 inline-block bg-[#F5C518] text-[#1B6B5A] text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="mt-1 inline-block bg-[#F5C518] text-[#0d6b7a] text-xs font-bold px-2 py-0.5 rounded-full">
                 ADMIN
               </span>
             </div>
@@ -88,14 +88,14 @@ const AdminLayout = ({ children }) => {
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-white/70 hover:bg-red-500/20 hover:text-red-300 transition-all text-sm font-medium"
           >
-            <LogOut size={18} />
+            <LogOut size={18}/>
             {!collapsed && <span>Logout</span>}
           </button>
         </div>
 
       </aside>
 
-      {/* Main */}
+      {/* ── Main ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Topbar */}
@@ -103,16 +103,16 @@ const AdminLayout = ({ children }) => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="text-[#1B6B5A] hover:text-[#F5C518] transition-colors"
+              className="text-[#0d6b7a] hover:text-[#F5C518] transition-colors"
             >
-              <Menu size={22} />
+              <Menu size={22}/>
             </button>
             <h1 className="text-lg font-bold text-gray-800">
               {navItems.find(n => n.path === location.pathname)?.label || 'Admin Panel'}
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#1B6B5A] flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-9 h-9 rounded-full bg-[#0d6b7a] flex items-center justify-center text-white font-bold text-sm">
               {user?.name?.charAt(0)}
             </div>
             <div>

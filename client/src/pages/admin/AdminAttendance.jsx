@@ -20,7 +20,6 @@ const AdminAttendance = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Helper to safely get session date
   const getSessionDate = (session) => {
     const d = session?.sessionDate || session?.date;
     if (!d) return null;
@@ -30,9 +29,7 @@ const AdminAttendance = () => {
 
   const getMonthLabel = (monthStr) => {
     const [year, month] = monthStr.split('-').map(Number);
-    return new Date(year, month - 1, 1).toLocaleDateString('en-GB', {
-      month: 'long', year: 'numeric',
-    });
+    return new Date(year, month - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   };
 
   const changeMonth = (direction) => {
@@ -42,8 +39,6 @@ const AdminAttendance = () => {
     setSelectedSession(null);
     setAttendanceMap({});
   };
-
-  // ── Queries ──────────────────────────────────────────────────────
 
   const { data: classes } = useQuery({
     queryKey: ['all-classes'],
@@ -60,35 +55,25 @@ const AdminAttendance = () => {
     queryKey: ['session-students', selectedSession?._id],
     queryFn: async () => {
       const classId = selectedSession.classId?._id || selectedSession.classId;
-
       const [clsRes, attRes] = await Promise.all([
         api.get(`/classes/${classId}`),
         api.get(`/attendance/session/${selectedSession._id}`),
       ]);
-
       const existingMap = {};
       attRes.data.attendance?.forEach(a => {
         const id = String(a.studentId?._id || a.studentId);
         existingMap[id] = a.status;
       });
-
       const students = clsRes.data.class?.enrolledStudents || [];
-
       const initialMap = {};
-      students.forEach(s => {
-        initialMap[String(s._id)] = existingMap[String(s._id)] || 'present';
-      });
-
+      students.forEach(s => { initialMap[String(s._id)] = existingMap[String(s._id)] || 'present'; });
       return { students, existingMap, initialMap };
     },
     enabled: !!selectedSession,
   });
 
-  // Set attendance map when session students load
   useEffect(() => {
-    if (sessionStudents?.initialMap) {
-      setAttendanceMap(sessionStudents.initialMap);
-    }
+    if (sessionStudents?.initialMap) setAttendanceMap(sessionStudents.initialMap);
   }, [sessionStudents]);
 
   const { data: alerts } = useQuery({
@@ -96,8 +81,6 @@ const AdminAttendance = () => {
     queryFn: () => api.get('/attendance/alerts').then(r => r.data),
     enabled: activeTab === 'alerts',
   });
-
-  // ── Mutations ────────────────────────────────────────────────────
 
   const generateMutation = useMutation({
     mutationFn: ({ classId, month }) => api.post('/sessions/generate', { classId, month }),
@@ -110,9 +93,7 @@ const AdminAttendance = () => {
 
   const markAttendanceMutation = useMutation({
     mutationFn: async () => {
-      const records = Object.entries(attendanceMap).map(([studentId, status]) => ({
-        studentId, status,
-      }));
+      const records = Object.entries(attendanceMap).map(([studentId, status]) => ({ studentId, status }));
       return api.post(`/attendance/session/${selectedSession._id}`, { records });
     },
     onSuccess: () => {
@@ -126,26 +107,22 @@ const AdminAttendance = () => {
     onError: err => toast.error(err.response?.data?.message || 'Failed to save'),
   });
 
-  // ── Helpers ──────────────────────────────────────────────────────
-
   const markAll = (status) => {
     const map = {};
-    sessionStudents?.students?.forEach(s => {
-      map[String(s._id)] = status;
-    });
+    sessionStudents?.students?.forEach(s => { map[String(s._id)] = status; });
     setAttendanceMap(map);
     toast.success(`All marked as ${status}`);
   };
 
   const presentCount = Object.values(attendanceMap).filter(s => s === 'present').length;
-  const absentCount = Object.values(attendanceMap).filter(s => s === 'absent').length;
-  const lateCount = Object.values(attendanceMap).filter(s => s === 'late').length;
+  const absentCount  = Object.values(attendanceMap).filter(s => s === 'absent').length;
+  const lateCount    = Object.values(attendanceMap).filter(s => s === 'late').length;
   const totalStudents = sessionStudents?.students?.length || 0;
 
   const statusConfig = {
-    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
+    scheduled: { bg: 'bg-blue-100',  text: 'text-blue-700',  label: 'Scheduled' },
     completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-600', label: 'Cancelled' },
+    cancelled: { bg: 'bg-red-100',   text: 'text-red-600',   label: 'Cancelled' },
   };
 
   return (
@@ -155,28 +132,22 @@ const AdminAttendance = () => {
         {/* Header */}
         <div>
           <h2 className="text-xl font-bold text-gray-800">Attendance</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Manage sessions and mark student attendance
-          </p>
+          <p className="text-sm text-gray-400 mt-1">Manage sessions and mark student attendance</p>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm w-fit">
           {[
             { key: 'sessions', label: '📅 Sessions' },
-            { key: 'alerts', label: '⚠️ Alerts' },
+            { key: 'alerts',   label: '⚠️ Alerts'   },
           ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${
                 activeTab === tab.key
-                  ? 'bg-[#1B6B5A] text-white'
+                  ? 'bg-[#0d6b7a] text-white'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
-            >
-              {tab.label}
-            </button>
+            >{tab.label}</button>
           ))}
         </div>
 
@@ -190,17 +161,11 @@ const AdminAttendance = () => {
               {/* Class selector */}
               <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">
-                    Select Class
-                  </label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Class</label>
                   <select
                     value={selectedClassId}
-                    onChange={e => {
-                      setSelectedClassId(e.target.value);
-                      setSelectedSession(null);
-                      setAttendanceMap({});
-                    }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
+                    onChange={e => { setSelectedClassId(e.target.value); setSelectedSession(null); setAttendanceMap({}); }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]"
                   >
                     <option value="">Choose a class...</option>
                     {classes?.classes?.map(cls => (
@@ -216,50 +181,35 @@ const AdminAttendance = () => {
 
                   {/* Month nav */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <button
-                      onClick={() => changeMonth(-1)}
-                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition"
-                    >
-                      <ChevronLeft size={18} />
+                    <button onClick={() => changeMonth(-1)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition">
+                      <ChevronLeft size={18}/>
                     </button>
                     <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-[#1B6B5A]" />
-                      <span className="font-semibold text-gray-700 text-sm">
-                        {getMonthLabel(selectedMonth)}
-                      </span>
+                      <Calendar size={14} className="text-[#0d6b7a]"/>
+                      <span className="font-semibold text-gray-700 text-sm">{getMonthLabel(selectedMonth)}</span>
                     </div>
-                    <button
-                      onClick={() => changeMonth(1)}
-                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition"
-                    >
-                      <ChevronRightIcon size={18} />
+                    <button onClick={() => changeMonth(1)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition">
+                      <ChevronRightIcon size={18}/>
                     </button>
                   </div>
 
                   {/* Sessions list */}
                   {loadingSessions ? (
                     <div className="p-6 text-center text-gray-400 text-sm">
-                      <RefreshCw size={20} className="mx-auto mb-2 animate-spin" />
+                      <RefreshCw size={20} className="mx-auto mb-2 animate-spin"/>
                       Loading sessions...
                     </div>
                   ) : sessions?.sessions?.length === 0 ? (
                     <div className="p-6 text-center">
-                      <Calendar size={28} className="mx-auto mb-2 text-gray-300" />
-                      <p className="text-gray-500 font-semibold text-sm">
-                        No sessions for {getMonthLabel(selectedMonth)}
-                      </p>
-                      <p className="text-gray-400 text-xs mt-1 mb-4">
-                        Generate sessions to start marking attendance
-                      </p>
+                      <Calendar size={28} className="mx-auto mb-2 text-gray-300"/>
+                      <p className="text-gray-500 font-semibold text-sm">No sessions for {getMonthLabel(selectedMonth)}</p>
+                      <p className="text-gray-400 text-xs mt-1 mb-4">Generate sessions to start marking attendance</p>
                       <button
-                        onClick={() => generateMutation.mutate({
-                          classId: selectedClassId,
-                          month: selectedMonth,
-                        })}
+                        onClick={() => generateMutation.mutate({ classId: selectedClassId, month: selectedMonth })}
                         disabled={generateMutation.isPending}
-                        className="inline-flex items-center gap-2 bg-[#1B6B5A] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#155a4a] transition disabled:opacity-50"
+                        className="inline-flex items-center gap-2 bg-[#0d6b7a] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#0a505d] transition disabled:opacity-50"
                       >
-                        <RefreshCw size={12} />
+                        <RefreshCw size={12}/>
                         {generateMutation.isPending ? 'Generating...' : 'Generate Sessions'}
                       </button>
                     </div>
@@ -270,46 +220,32 @@ const AdminAttendance = () => {
                         const sessionDate = getSessionDate(session);
                         const isSelected = selectedSession?._id === session._id;
                         const isCancelled = session.status === 'cancelled';
-
                         return (
                           <div
                             key={session._id}
-                            onClick={() => {
-                              if (!isCancelled) {
-                                setSelectedSession(session);
-                                setAttendanceMap({});
-                              }
-                            }}
-                            style={isSelected ? { background: 'rgba(27,107,90,0.06)' } : {}}
+                            onClick={() => { if (!isCancelled) { setSelectedSession(session); setAttendanceMap({}); } }}
+                            style={isSelected ? { background: 'rgba(13,107,122,0.06)' } : {}}
                             className={`px-4 py-3 flex items-center justify-between transition ${
-                              isSelected
-                                ? 'border-l-4 border-[#1B6B5A]'
-                                : isCancelled
-                                ? 'opacity-40 cursor-not-allowed'
-                                : 'hover:bg-gray-50 cursor-pointer'
+                              isSelected       ? 'border-l-4 border-[#0d6b7a]'
+                              : isCancelled    ? 'opacity-40 cursor-not-allowed'
+                              : 'hover:bg-gray-50 cursor-pointer'
                             }`}
                           >
                             <div>
                               <p className="font-semibold text-gray-800 text-sm">
                                 {sessionDate
-                                  ? sessionDate.toLocaleDateString('en-GB', {
-                                      weekday: 'short', day: 'numeric', month: 'short',
-                                    })
+                                  ? sessionDate.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })
                                   : 'Date not set'}
                               </p>
                               <p className="text-xs text-gray-400 mt-0.5">
-                                {session.startTime}
-                                {session.endTime ? ` — ${session.endTime}` : ''}
-                                {' • '}{session.hall}
+                                {session.startTime}{session.endTime ? ` — ${session.endTime}` : ''}{' • '}{session.hall}
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${config?.bg} ${config?.text}`}>
                                 {config?.label}
                               </span>
-                              {!isCancelled && (
-                                <ChevronRight size={14} className="text-gray-300" />
-                              )}
+                              {!isCancelled && <ChevronRight size={14} className="text-gray-300"/>}
                             </div>
                           </div>
                         );
@@ -321,10 +257,10 @@ const AdminAttendance = () => {
                   {sessions?.sessions?.length > 0 && (
                     <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex gap-4">
                       {[
-                        { label: 'Total', count: sessions.sessions.length, color: 'text-gray-600' },
-                        { label: 'Done', count: sessions.sessions.filter(s => s.status === 'completed').length, color: 'text-green-600' },
-                        { label: 'Pending', count: sessions.sessions.filter(s => s.status === 'scheduled').length, color: 'text-blue-600' },
-                        { label: 'Cancelled', count: sessions.sessions.filter(s => s.status === 'cancelled').length, color: 'text-red-500' },
+                        { label:'Total',     count: sessions.sessions.length,                                         color:'text-gray-600'  },
+                        { label:'Done',      count: sessions.sessions.filter(s=>s.status==='completed').length,       color:'text-green-600' },
+                        { label:'Pending',   count: sessions.sessions.filter(s=>s.status==='scheduled').length,       color:'text-blue-600'  },
+                        { label:'Cancelled', count: sessions.sessions.filter(s=>s.status==='cancelled').length,       color:'text-red-500'   },
                       ].map(stat => (
                         <div key={stat.label} className="text-center flex-1">
                           <p className={`text-base font-bold ${stat.color}`}>{stat.count}</p>
@@ -341,29 +277,22 @@ const AdminAttendance = () => {
             <div className="col-span-2">
               {!selectedSession ? (
                 <div className="bg-white rounded-xl shadow-sm h-full min-h-64 flex flex-col items-center justify-center text-gray-400 p-12">
-                  <Users size={48} className="mb-3 opacity-20" />
+                  <Users size={48} className="mb-3 opacity-20"/>
                   <p className="font-semibold text-gray-500">Select a session to mark attendance</p>
-                  <p className="text-sm mt-1 text-gray-400 text-center">
-                    Choose a class and click on a scheduled session
-                  </p>
+                  <p className="text-sm mt-1 text-gray-400 text-center">Choose a class and click on a scheduled session</p>
                 </div>
               ) : (
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
 
                   {/* Session header */}
-                  <div className="bg-gradient-to-r from-[#1B6B5A] to-[#00B894] px-6 py-5 text-white">
+                  <div className="bg-gradient-to-r from-[#0d6b7a] to-[#00b8c8] px-6 py-5 text-white">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">
-                          Marking attendance for
-                        </p>
+                        <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Marking attendance for</p>
                         <h3 className="font-bold text-xl">
                           {(() => {
                             const d = getSessionDate(selectedSession);
-                            return d ? d.toLocaleDateString('en-GB', {
-                              weekday: 'long', day: 'numeric',
-                              month: 'long', year: 'numeric',
-                            }) : 'Session';
+                            return d ? d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) : 'Session';
                           })()}
                         </h3>
                         <p className="text-white/70 text-sm mt-1">
@@ -373,38 +302,19 @@ const AdminAttendance = () => {
                           {' • '}{selectedSession.hall}
                         </p>
                       </div>
-                      <button
-                        onClick={() => { setSelectedSession(null); setAttendanceMap({}); }}
-                        className="text-white/60 hover:text-white transition text-xl"
-                      >
-                        ✕
-                      </button>
+                      <button onClick={() => { setSelectedSession(null); setAttendanceMap({}); }} className="text-white/60 hover:text-white transition text-xl">✕</button>
                     </div>
 
                     {/* Live stats */}
                     {totalStudents > 0 && (
                       <div className="flex gap-5 mt-4 pt-4 border-t border-white/20">
-                        <div className="text-center">
-                          <p className="text-xl font-bold">{totalStudents}</p>
-                          <p className="text-white/60 text-xs">Total</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-green-300">{presentCount}</p>
-                          <p className="text-white/60 text-xs">Present</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-red-300">{absentCount}</p>
-                          <p className="text-white/60 text-xs">Absent</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-yellow-300">{lateCount}</p>
-                          <p className="text-white/60 text-xs">Late</p>
-                        </div>
+                        <div className="text-center"><p className="text-xl font-bold">{totalStudents}</p><p className="text-white/60 text-xs">Total</p></div>
+                        <div className="text-center"><p className="text-xl font-bold text-green-300">{presentCount}</p><p className="text-white/60 text-xs">Present</p></div>
+                        <div className="text-center"><p className="text-xl font-bold text-red-300">{absentCount}</p><p className="text-white/60 text-xs">Absent</p></div>
+                        <div className="text-center"><p className="text-xl font-bold text-yellow-300">{lateCount}</p><p className="text-white/60 text-xs">Late</p></div>
                         <div className="text-center ml-auto">
                           <p className="text-xl font-bold">
-                            {totalStudents > 0
-                              ? Math.round((presentCount + lateCount) / totalStudents * 100)
-                              : 0}%
+                            {totalStudents > 0 ? Math.round((presentCount + lateCount) / totalStudents * 100) : 0}%
                           </p>
                           <p className="text-white/60 text-xs">Attendance</p>
                         </div>
@@ -414,32 +324,27 @@ const AdminAttendance = () => {
 
                   {/* Bulk actions */}
                   <div className="px-6 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-3 flex-wrap">
-                    <span className="text-xs font-semibold text-gray-500 uppercase">
-                      Bulk mark:
-                    </span>
-                    <button onClick={() => markAll('present')}
-                      className="flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
-                      <CheckCircle size={12} /> All Present
+                    <span className="text-xs font-semibold text-gray-500 uppercase">Bulk mark:</span>
+                    <button onClick={() => markAll('present')} className="flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
+                      <CheckCircle size={12}/> All Present
                     </button>
-                    <button onClick={() => markAll('absent')}
-                      className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-100 transition">
-                      <XCircle size={12} /> All Absent
+                    <button onClick={() => markAll('absent')} className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-100 transition">
+                      <XCircle size={12}/> All Absent
                     </button>
-                    <button onClick={() => markAll('late')}
-                      className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-yellow-100 transition">
-                      <Clock size={12} /> All Late
+                    <button onClick={() => markAll('late')} className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-yellow-100 transition">
+                      <Clock size={12}/> All Late
                     </button>
                   </div>
 
                   {/* Students list */}
                   {loadingStudents ? (
                     <div className="p-12 text-center text-gray-400">
-                      <RefreshCw size={24} className="mx-auto mb-2 animate-spin" />
+                      <RefreshCw size={24} className="mx-auto mb-2 animate-spin"/>
                       Loading students...
                     </div>
                   ) : sessionStudents?.students?.length === 0 ? (
                     <div className="p-12 text-center text-gray-400">
-                      <Users size={32} className="mx-auto mb-3 opacity-20" />
+                      <Users size={32} className="mx-auto mb-3 opacity-20"/>
                       <p className="font-semibold text-gray-500">No students enrolled</p>
                       <p className="text-sm mt-1">No students are enrolled in this class yet</p>
                     </div>
@@ -448,43 +353,26 @@ const AdminAttendance = () => {
                       {sessionStudents?.students?.map((student, i) => {
                         const status = attendanceMap[String(student._id)] || 'present';
                         return (
-                          <div
-                            key={student._id}
-                            className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition"
-                          >
+                          <div key={student._id} className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-[#1B6B5A] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                              <div className="w-9 h-9 rounded-full bg-[#0d6b7a] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                 {student.userId?.name?.charAt(0)?.toUpperCase() || '?'}
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                  {student.userId?.name || 'Unknown Student'}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {student.admissionNumber || `Student ${i + 1}`}
-                                </p>
+                                <p className="font-semibold text-gray-800 text-sm">{student.userId?.name || 'Unknown Student'}</p>
+                                <p className="text-xs text-gray-400">{student.admissionNumber || `Student ${i + 1}`}</p>
                               </div>
                             </div>
-
-                            {/* Status buttons */}
                             <div className="flex gap-2">
                               {[
-                                { key: 'present', label: 'Present', active: 'bg-green-500 text-white', inactive: 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600' },
-                                { key: 'absent', label: 'Absent', active: 'bg-red-500 text-white', inactive: 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600' },
-                                { key: 'late', label: 'Late', active: 'bg-yellow-500 text-white', inactive: 'bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-600' },
+                                { key:'present', label:'Present', active:'bg-green-500 text-white', inactive:'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600' },
+                                { key:'absent',  label:'Absent',  active:'bg-red-500 text-white',   inactive:'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'   },
+                                { key:'late',    label:'Late',    active:'bg-yellow-500 text-white', inactive:'bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-600' },
                               ].map(s => (
-                                <button
-                                  key={s.key}
-                                  onClick={() => setAttendanceMap(prev => ({
-                                    ...prev,
-                                    [String(student._id)]: s.key,
-                                  }))}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                                    status === s.key ? s.active : s.inactive
-                                  }`}
-                                >
-                                  {s.label}
-                                </button>
+                                <button key={s.key}
+                                  onClick={() => setAttendanceMap(prev => ({ ...prev, [String(student._id)]: s.key }))}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${status === s.key ? s.active : s.inactive}`}
+                                >{s.label}</button>
                               ))}
                             </div>
                           </div>
@@ -506,18 +394,12 @@ const AdminAttendance = () => {
                       <button
                         onClick={() => markAttendanceMutation.mutate()}
                         disabled={markAttendanceMutation.isPending}
-                        className="flex items-center gap-2 bg-[#1B6B5A] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#155a4a] transition disabled:opacity-50 shadow-sm"
+                        className="flex items-center gap-2 bg-[#0d6b7a] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a505d] transition disabled:opacity-50 shadow-sm"
                       >
                         {markAttendanceMutation.isPending ? (
-                          <>
-                            <RefreshCw size={16} className="animate-spin" />
-                            Saving...
-                          </>
+                          <><RefreshCw size={16} className="animate-spin"/> Saving...</>
                         ) : (
-                          <>
-                            <CheckCircle size={16} />
-                            Save Attendance & Complete Session
-                          </>
+                          <><CheckCircle size={16}/> Save Attendance & Complete Session</>
                         )}
                       </button>
                     </div>
@@ -532,17 +414,16 @@ const AdminAttendance = () => {
         {activeTab === 'alerts' && (
           <div className="space-y-4">
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 flex items-center gap-3">
-              <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0" />
+              <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0"/>
               <p className="text-yellow-700 text-sm">
-                Students below <strong>80% attendance</strong> are flagged.
-                Below <strong>60%</strong> is critical.
+                Students below <strong>80% attendance</strong> are flagged. Below <strong>60%</strong> is critical.
               </p>
             </div>
 
             {alerts?.alerts?.length === 0 && (
               <div className="bg-white rounded-xl p-12 text-center">
                 <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle size={28} className="text-green-600" />
+                  <CheckCircle size={28} className="text-green-600"/>
                 </div>
                 <p className="font-semibold text-gray-600 text-lg">All clear!</p>
                 <p className="text-sm text-gray-400 mt-1">All students are above 80% attendance</p>
@@ -559,31 +440,21 @@ const AdminAttendance = () => {
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         alert.risk === 'critical' ? 'bg-red-100' : 'bg-yellow-100'
                       }`}>
-                        <AlertTriangle size={18} className={
-                          alert.risk === 'critical' ? 'text-red-500' : 'text-yellow-600'
-                        } />
+                        <AlertTriangle size={18} className={alert.risk === 'critical' ? 'text-red-500' : 'text-yellow-600'}/>
                       </div>
                       <div>
                         <p className="font-bold text-gray-800">{alert.student?.name}</p>
                         <p className="text-sm text-gray-500">{alert.class}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {alert.presentCount}/{alert.totalSessions} sessions attended
-                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{alert.presentCount}/{alert.totalSessions} sessions attended</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-3xl font-bold ${
-                        alert.risk === 'critical' ? 'text-red-500' : 'text-yellow-600'
-                      }`}>
+                      <p className={`text-3xl font-bold ${alert.risk === 'critical' ? 'text-red-500' : 'text-yellow-600'}`}>
                         {alert.attendancePercentage}%
                       </p>
                       <span className={`text-xs font-bold px-2 py-1 rounded-full capitalize ${
-                        alert.risk === 'critical'
-                          ? 'bg-red-100 text-red-600'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {alert.risk}
-                      </span>
+                        alert.risk === 'critical' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
+                      }`}>{alert.risk}</span>
                     </div>
                   </div>
                 </div>

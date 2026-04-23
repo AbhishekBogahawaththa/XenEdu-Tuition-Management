@@ -42,17 +42,15 @@ const AdminDashboard = () => {
     queryFn: () => api.get('/classes').then(r => r.data),
   });
 
-  // Pending count only for banner
-  const { data: pending, refetch: refetchPending } = useQuery({
+  const { data: pending } = useQuery({
     queryKey: ['pending'],
     queryFn: () => api.get('/register/pending?status=pending').then(r => r.data),
   });
 
-  // All recent registrations for table (all statuses)
   const { data: recentRegistrations } = useQuery({
     queryKey: ['recent-registrations'],
     queryFn: () => api.get('/register/pending').then(r => r.data),
-    refetchInterval: 5000, // auto-refresh every 5 seconds
+    refetchInterval: 5000,
   });
 
   const { data: outstanding } = useQuery({
@@ -66,7 +64,6 @@ const AdminDashboard = () => {
     refetchInterval: 30000,
   });
 
-  // Monthly income — real data from API
   const { data: monthlyReport } = useQuery({
     queryKey: ['monthly-report'],
     queryFn: async () => {
@@ -95,7 +92,7 @@ const AdminDashboard = () => {
     <AdminLayout>
       <div className="space-y-6">
 
-        {/* Alert banner — only show if pending count > 0 */}
+        {/* Alert banner */}
         {pending?.count > 0 && (
           <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-5 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -106,7 +103,7 @@ const AdminDashboard = () => {
             </div>
             <button
               onClick={() => navigate('/admin/registrations')}
-              className="bg-[#F5C518] text-[#1B6B5A] font-bold text-sm px-4 py-2 rounded-lg hover:bg-yellow-400 transition"
+              className="bg-[#F5C518] text-[#0d6b7a] font-bold text-sm px-4 py-2 rounded-lg hover:bg-yellow-400 transition"
             >
               Review Now
             </button>
@@ -115,10 +112,10 @@ const AdminDashboard = () => {
 
         {/* Stats */}
         <div className="flex gap-4 flex-wrap">
-          <StatCard title="Total Students" value={students?.count} icon={Users} bg="bg-[#1B6B5A]" sub="Active enrollments" />
-          <StatCard title="Total Teachers" value={teachers?.count} icon={GraduationCap} bg="bg-blue-500" sub="Active staff" />
-          <StatCard title="Active Classes" value={classes?.count} icon={BookOpen} bg="bg-purple-500" sub="Running this term" />
-          <StatCard title="Pending Approvals" value={pending?.count ?? 0} icon={UserCheck} bg="bg-[#F5C518]" sub="Needs review" />
+          <StatCard title="Total Students"    value={students?.count}   icon={Users}         bg="bg-[#0d6b7a]"  sub="Active enrollments" />
+          <StatCard title="Total Teachers"    value={teachers?.count}   icon={GraduationCap} bg="bg-blue-500"    sub="Active staff" />
+          <StatCard title="Active Classes"    value={classes?.count}    icon={BookOpen}      bg="bg-purple-500"  sub="Running this term" />
+          <StatCard title="Pending Approvals" value={pending?.count ?? 0} icon={UserCheck}   bg="bg-[#F5C518]"  sub="Needs review" />
           <StatCard
             title="Outstanding Fees"
             value={outstanding ? `Rs.${outstanding.totalOutstanding?.toLocaleString()}` : '...'}
@@ -131,7 +128,7 @@ const AdminDashboard = () => {
         {/* Chart + Alerts */}
         <div className="grid grid-cols-3 gap-6">
 
-          {/* Monthly Income Chart — real data */}
+          {/* Monthly Income Chart */}
           <div className="col-span-2 bg-white rounded-xl p-6 shadow-sm">
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-base font-bold text-gray-800">Monthly Income Overview</h2>
@@ -141,13 +138,13 @@ const AdminDashboard = () => {
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={monthlyReport}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#888', fontFamily: 'Roboto' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#888', fontFamily: 'Roboto' }} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#888' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#888' }} />
                   <Tooltip formatter={(value) => `Rs.${value.toLocaleString()}`} />
                   <Legend />
                   <Line
-                    type="monotone" dataKey="income" stroke="#1B6B5A"
-                    strokeWidth={2.5} dot={{ fill: '#1B6B5A', r: 4 }}
+                    type="monotone" dataKey="income" stroke="#0d6b7a"
+                    strokeWidth={2.5} dot={{ fill: '#0d6b7a', r: 4 }}
                     name="Income (Rs.)"
                   />
                   <Line
@@ -160,7 +157,7 @@ const AdminDashboard = () => {
             ) : (
               <div className="flex items-center justify-center h-52">
                 <div className="text-center">
-                  <div className="w-8 h-8 border-2 border-[#1B6B5A] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <div className="w-8 h-8 border-2 border-[#0d6b7a] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   <p className="text-gray-400 text-sm">Loading chart...</p>
                 </div>
               </div>
@@ -170,9 +167,7 @@ const AdminDashboard = () => {
           {/* Attendance Alerts */}
           <div className="bg-white rounded-xl p-6 shadow-sm overflow-y-auto max-h-80">
             <h2 className="text-base font-bold text-gray-800 mb-4">Attendance Alerts</h2>
-            {!alerts && (
-              <p className="text-gray-400 text-sm">Loading...</p>
-            )}
+            {!alerts && <p className="text-gray-400 text-sm">Loading...</p>}
             {alerts && (!alerts.alerts || alerts.alerts.length === 0) && (
               <div className="flex flex-col items-center justify-center py-6">
                 <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mb-2">
@@ -188,25 +183,22 @@ const AdminDashboard = () => {
                   <p className="text-xs text-gray-400 mt-0.5">{alert.class}</p>
                 </div>
                 <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                  alert.risk === 'critical'
-                    ? 'bg-red-100 text-red-600'
-                    : 'bg-yellow-100 text-yellow-600'
+                  alert.risk === 'critical' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
                 }`}>
                   {alert.attendancePercentage}%
                 </span>
               </div>
             ))}
           </div>
-
         </div>
 
-        {/* Recent Registrations table — all statuses */}
+        {/* Recent Registrations table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h2 className="text-base font-bold text-gray-800">Recent Registrations</h2>
             <button
               onClick={() => navigate('/admin/registrations')}
-              className="text-sm font-semibold text-[#1B6B5A] border border-[#1B6B5A] px-4 py-1.5 rounded-lg hover:bg-[#1B6B5A] hover:text-white transition"
+              className="text-sm font-semibold text-[#0d6b7a] border border-[#0d6b7a] px-4 py-1.5 rounded-lg hover:bg-[#0d6b7a] hover:text-white transition"
             >
               View All
             </button>
@@ -231,11 +223,9 @@ const AdminDashboard = () => {
                   <td className="px-6 py-4 text-gray-500">{req.stream}</td>
                   <td className="px-6 py-4">
                     <span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${
-                      req.status === 'approved'
-                        ? 'bg-green-100 text-green-700'
-                        : req.status === 'rejected'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-yellow-100 text-yellow-700'
+                      req.status === 'approved' ? 'bg-green-100 text-green-700'
+                      : req.status === 'rejected' ? 'bg-red-100 text-red-600'
+                      : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {req.status}
                     </span>

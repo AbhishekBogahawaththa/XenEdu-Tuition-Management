@@ -3,27 +3,36 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
+// ── Teal palette (matches LandingPage, LoginPage, RegisterPage) ───
+const C = {
+  green:  '#0d6b7a',
+  green2: '#00b8c8',
+  gold:   '#F5C518',
+  dark:   '#1a1a1a',
+  muted:  '#888',
+  border: '#E8E8E8',
+  bg:     '#FAFAF8',
+};
+
 const ResetPasswordPage = () => {
   const { token } = useParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ password: '', confirmPassword: '' });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [form, setForm]               = useState({ password: '', confirmPassword: '' });
+  const [loading, setLoading]         = useState(false);
+  const [success, setSuccess]         = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible]         = useState(false);
 
-  useEffect(() => {
-    setTimeout(() => setVisible(true), 80);
-  }, []);
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
   const getStrength = (pwd) => {
-    let score = 0;
-    if (pwd.length >= 8) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
-    return score;
+    let s = 0;
+    if (pwd.length >= 8)          s++;
+    if (/[A-Z]/.test(pwd))        s++;
+    if (/[0-9]/.test(pwd))        s++;
+    if (/[^A-Za-z0-9]/.test(pwd)) s++;
+    return s;
   };
 
   const strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
@@ -32,20 +41,11 @@ const ResetPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-    if (form.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
+    if (form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return; }
+    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', {
-        token,
-        password: form.password,
-      });
+      await api.post('/auth/reset-password', { token, password: form.password });
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
@@ -55,229 +55,153 @@ const ResetPasswordPage = () => {
     }
   };
 
+  const inputStyle = {
+    width: '100%', padding: '13px 48px 13px 16px',
+    border: `1.5px solid ${C.border}`, borderRadius: 12,
+    fontSize: 14, outline: 'none', background: 'white',
+    transition: 'border-color 0.2s', boxSizing: 'border-box',
+    color: C.dark, fontFamily: 'inherit',
+  };
+
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex',
-      fontFamily: 'Roboto, sans-serif', background: '#FAFAF8',
-      alignItems: 'center', justifyContent: 'center', padding: '40px',
+      minHeight: '100vh', display: 'flex', fontFamily: "'DM Sans', Roboto, sans-serif",
+      background: C.bg, alignItems: 'center', justifyContent: 'center', padding: 40,
     }}>
       <div style={{
-        width: '100%', maxWidth: '420px',
-        opacity: visible ? 1 : 0,
+        width: '100%', maxWidth: 420,
+        opacity:   visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 0.7s ease, transform 0.7s ease',
       }}>
 
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            width: '56px', height: '56px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, #1B6B5A, #00B894)',
+            width: 56, height: 56, borderRadius: 16,
+            background: `linear-gradient(135deg,${C.green},${C.green2})`,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: '#F5C518', fontWeight: '800', fontSize: '24px',
-            marginBottom: '12px',
+            color: C.gold, fontWeight: 800, fontSize: 24, marginBottom: 12,
           }}>X</div>
-          <p style={{ margin: 0, fontWeight: '800', fontSize: '20px', color: '#1B6B5A' }}>XenEdu</p>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 20, color: C.green }}>XenEdu</p>
         </div>
 
         {!success ? (
-          <div style={{
-            background: 'white', borderRadius: '20px', padding: '36px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-            border: '1px solid #F0F0F0',
-          }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div style={{
-                width: '64px', height: '64px', borderRadius: '50%',
-                background: '#E8F5F0', display: 'inline-flex',
-                alignItems: 'center', justifyContent: 'center', fontSize: '28px',
-              }}>🔑</div>
+          <div style={{ background: 'white', borderRadius: 20, padding: 36, boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: `1px solid ${C.border}` }}>
+
+            {/* Icon */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${C.green}18`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🔑</div>
             </div>
 
-            <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#1a1a1a', margin: '0 0 8px', textAlign: 'center' }}>
-              Set New Password
-            </h1>
-            <p style={{ color: '#888', fontSize: '14px', margin: '0 0 28px', textAlign: 'center' }}>
-              Choose a strong password for your XenEdu account.
-            </p>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: C.dark, margin: '0 0 8px', textAlign: 'center' }}>Set New Password</h1>
+            <p style={{ color: C.muted, fontSize: 14, margin: '0 0 28px', textAlign: 'center' }}>Choose a strong password for your XenEdu account.</p>
 
             <form onSubmit={handleSubmit}>
 
-              {/* New password */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block', fontSize: '13px',
-                  fontWeight: '600', color: '#444', marginBottom: '8px',
-                }}>
-                  New Password
-                </label>
+              {/* New Password */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 8 }}>New Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={e => setForm({ ...form, password: e.target.value })}
-                    placeholder="Min. 6 characters"
-                    required
-                    style={{
-                      width: '100%', padding: '13px 48px 13px 16px',
-                      border: '1.5px solid #E8E8E8', borderRadius: '12px',
-                      fontSize: '14px', outline: 'none', background: 'white',
-                      transition: 'border-color 0.2s',
-                      boxSizing: 'border-box', color: '#1a1a1a',
-                    }}
-                    onFocus={e => e.target.style.borderColor = '#1B6B5A'}
-                    onBlur={e => e.target.style.borderColor = '#E8E8E8'}
+                    placeholder="Min. 6 characters" required
+                    style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = C.green}
+                    onBlur={e  => e.target.style.borderColor = C.border}
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute', right: '14px', top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px',
-                    }}>
+                    style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>
                     {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
 
-                {/* Password strength */}
+                {/* Strength meter */}
                 {form.password.length > 0 && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      {[1, 2, 3, 4].map(i => (
-                        <div key={i} style={{
-                          flex: 1, height: '4px', borderRadius: '2px',
-                          background: i <= strength ? strengthColors[strength] : '#E8E8E8',
-                          transition: 'background 0.3s',
-                        }} />
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                      {[1,2,3,4].map(i => (
+                        <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, transition: 'background 0.3s', background: i <= strength ? strengthColors[strength] : C.border }}/>
                       ))}
                     </div>
-                    <p style={{
-                      margin: 0, fontSize: '12px', fontWeight: '600',
-                      color: strengthColors[strength],
-                    }}>
-                      {strengthLabels[strength]}
-                    </p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: strengthColors[strength] }}>{strengthLabels[strength]}</p>
                   </div>
                 )}
               </div>
 
-              {/* Confirm password */}
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{
-                  display: 'block', fontSize: '13px',
-                  fontWeight: '600', color: '#444', marginBottom: '8px',
-                }}>
-                  Confirm Password
-                </label>
+              {/* Confirm Password */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 8 }}>Confirm Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showConfirm ? 'text' : 'password'}
                     value={form.confirmPassword}
                     onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                    placeholder="Repeat your password"
-                    required
+                    placeholder="Repeat your password" required
                     style={{
-                      width: '100%', padding: '13px 48px 13px 16px',
-                      border: `1.5px solid ${
-                        form.confirmPassword && form.password !== form.confirmPassword
-                          ? '#EF4444'
-                          : form.confirmPassword && form.password === form.confirmPassword
-                          ? '#10B981'
-                          : '#E8E8E8'
-                      }`,
-                      borderRadius: '12px', fontSize: '14px', outline: 'none',
-                      background: 'white', transition: 'border-color 0.2s',
-                      boxSizing: 'border-box', color: '#1a1a1a',
+                      ...inputStyle,
+                      borderColor: form.confirmPassword
+                        ? form.password !== form.confirmPassword ? '#EF4444'
+                        : '#10B981'
+                        : C.border,
                     }}
                   />
                   <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                    style={{
-                      position: 'absolute', right: '14px', top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px',
-                    }}>
+                    style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>
                     {showConfirm ? '🙈' : '👁️'}
                   </button>
                 </div>
                 {form.confirmPassword && form.password !== form.confirmPassword && (
-                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#EF4444' }}>
-                    Passwords do not match
-                  </p>
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: '#EF4444' }}>Passwords do not match</p>
                 )}
                 {form.confirmPassword && form.password === form.confirmPassword && (
-                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#10B981' }}>
-                    ✓ Passwords match
-                  </p>
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: '#10B981' }}>✓ Passwords match</p>
                 )}
               </div>
 
-              <button
-                type="submit"
+              {/* Submit */}
+              <button type="submit"
                 disabled={loading || form.password !== form.confirmPassword}
                 style={{
-                  width: '100%', padding: '14px',
-                  background: loading || form.password !== form.confirmPassword
-                    ? '#ccc' : '#1B6B5A',
-                  color: 'white', border: 'none', borderRadius: '12px',
-                  fontSize: '15px', fontWeight: '700',
-                  cursor: loading || form.password !== form.confirmPassword
-                    ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 15px rgba(27,107,90,0.3)',
+                  width: '100%', padding: 14,
+                  background: (loading || form.password !== form.confirmPassword) ? '#ccc' : C.green,
+                  color: 'white', border: 'none', borderRadius: 12,
+                  fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: (loading || form.password !== form.confirmPassword) ? 'not-allowed' : 'pointer',
+                  boxShadow: `0 4px 15px ${C.green}4d`,
                   transition: 'all 0.2s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                 }}
+                onMouseEnter={e => { if (!loading && form.password === form.confirmPassword) e.currentTarget.style.background = '#0a505d'; }}
+                onMouseLeave={e => { if (!loading && form.password === form.confirmPassword) e.currentTarget.style.background = C.green; }}
               >
                 {loading ? (
                   <>
-                    <span style={{
-                      width: '18px', height: '18px', borderRadius: '50%',
-                      border: '2.5px solid rgba(255,255,255,0.3)',
-                      borderTopColor: 'white',
-                      animation: 'spin 0.7s linear infinite',
-                      display: 'inline-block',
-                    }} />
+                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.7s linear infinite', display: 'inline-block' }}/>
                     Resetting...
                   </>
                 ) : 'Reset Password'}
               </button>
             </form>
 
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-              <Link to="/login" style={{
-                color: '#888', fontSize: '14px', textDecoration: 'none',
-              }}>
-                ← Back to Login
-              </Link>
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <Link to="/login" style={{ color: C.muted, fontSize: 14, textDecoration: 'none', transition: 'color 0.2s' }}
+                onMouseEnter={e => e.target.style.color = C.green}
+                onMouseLeave={e => e.target.style.color = C.muted}
+              >← Back to Login</Link>
             </div>
           </div>
+
         ) : (
           /* Success */
-          <div style={{
-            background: 'white', borderRadius: '20px', padding: '36px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-            border: '1px solid #F0F0F0', textAlign: 'center',
-            animation: 'fadeIn 0.5s ease',
-          }}>
-            <div style={{
-              width: '72px', height: '72px', borderRadius: '50%',
-              background: '#E8F5F0', border: '3px solid #1B6B5A',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '32px', marginBottom: '20px',
-            }}>✅</div>
-            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#1a1a1a', margin: '0 0 12px' }}>
-              Password Reset!
-            </h2>
-            <p style={{ color: '#666', fontSize: '14px', margin: '0 0 8px', lineHeight: '1.6' }}>
-              Your password has been successfully reset.
-            </p>
-            <p style={{ color: '#aaa', fontSize: '13px', margin: '0 0 24px' }}>
-              Redirecting to login in 3 seconds...
-            </p>
-            <Link to="/login" style={{
-              display: 'inline-block',
-              background: 'linear-gradient(135deg, #1B6B5A, #00B894)',
-              color: 'white', padding: '12px 32px', borderRadius: '12px',
-              fontWeight: '700', fontSize: '14px', textDecoration: 'none',
-            }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: 36, boxShadow: '0 4px 24px rgba(0,0,0,0.06)', border: `1px solid ${C.border}`, textAlign: 'center', animation: 'fadeIn 0.5s ease' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: `${C.green}18`, border: `3px solid ${C.green}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 20 }}>✅</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: C.dark, margin: '0 0 12px' }}>Password Reset!</h2>
+            <p style={{ color: '#666', fontSize: 14, margin: '0 0 8px', lineHeight: 1.6 }}>Your password has been successfully reset.</p>
+            <p style={{ color: '#aaa', fontSize: 13, margin: '0 0 24px' }}>Redirecting to login in 3 seconds...</p>
+            <Link to="/login" style={{ display: 'inline-block', background: `linear-gradient(135deg,${C.green},${C.green2})`, color: 'white', padding: '12px 32px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
               Go to Login
             </Link>
           </div>
@@ -285,8 +209,8 @@ const ResetPasswordPage = () => {
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes fadeIn  { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
       `}</style>
     </div>
   );
