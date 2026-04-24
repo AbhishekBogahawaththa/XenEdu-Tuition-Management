@@ -116,7 +116,7 @@ const ZenyaChat = () => {
         @keyframes chatSlideUp { from{opacity:0;transform:translateY(28px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes popoutIn { from{opacity:0;transform:translateX(12px) scale(0.94)}to{opacity:1;transform:translateX(0) scale(1)} }
         @keyframes floatBtn { 0%,100%{transform:translateY(0px)}50%{transform:translateY(-7px)} }
-        .zenya-faq-btn:hover { background:#E4F5F7 !important; border-color:#0d6b7a !important; transform:translateX(5px); }
+        .zenya-faq-btn:hover { background:#E4F5F7 !important; border-color:#1B6B5A !important; transform:translateX(5px); }
         .zenya-chip:hover { background:#0d6b7a !important; color:white !important; }
         .zenya-send:hover:not(:disabled) { transform:scale(1.08); }
         .zenya-start:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(13,107,122,0.4) !important; }

@@ -5,14 +5,14 @@ import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import {
   BookOpen, Clock, Users, CreditCard, Search,
-  ArrowLeft, Play, FileText, Upload, CheckCircle,
-  AlertCircle, X
+  ArrowLeft, Play, FileText, Upload, X
 } from 'lucide-react';
 import { SUBJECTS, GRADES, MEDIUMS } from '../../utils/constants';
 
 // ─── Payment Modal ────────────────────────────────────────────────
-const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
+const PaymentModal = ({ cls, onClose, onSuccess }) => {
   const [method, setMethod] = useState('cash');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [form, setForm] = useState({
     cardHolder: '', cardNumber: '', cardExpiry: '', cardCVV: '',
     bankName: '', transactionRef: '', notes: '',
@@ -20,14 +20,52 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
   const [slip, setSlip] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Get student fee records for this class
+  const { data: myFees } = useQuery({
+    queryKey: ['my-fees'],
+    queryFn: () => api.get('/fees/student').then(r => r.data),
+  });
+
+  const unpaidFees = myFees?.fees?.filter(f =>
+    String(f.classId?._id || f.classId) === String(cls._id) &&
+    (f.status === 'unpaid' || f.status === 'overdue')
+  ) || [];
+
+  const paidFees = myFees?.fees?.filter(f =>
+    String(f.classId?._id || f.classId) === String(cls._id) &&
+    f.status === 'paid'
+  ) || [];
+
+  const paidMonths = paidFees.map(f => f.month);
+  const selectedFeeRecord = unpaidFees.find(f => f.month === selectedMonth);
+
+  // Generate month options
+  const generateMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = -2; i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const isPaid = paidMonths.includes(value);
+      options.push({ value, label, isPaid });
+    }
+    return options;
+  };
+
   const handleSubmit = async () => {
+    if (!selectedMonth) {
+      toast.error('Please select a month to pay for');
+      return;
+    }
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append('classId', cls._id);
       formData.append('amount', cls.monthlyFee);
       formData.append('method', method);
-      if (feeRecord) formData.append('feeRecordId', feeRecord._id);
+      formData.append('month', selectedMonth);
+      if (selectedFeeRecord) formData.append('feeRecordId', selectedFeeRecord._id);
 
       if (method === 'card') {
         formData.append('cardHolderName', form.cardHolder);
@@ -54,6 +92,8 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
     }
   };
 
+  const monthOptions = generateMonthOptions();
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -64,9 +104,10 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
         maxHeight: '90vh', overflowY: 'auto', padding: '28px',
         boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
       }}>
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1a1a1a' }}>Pay Fee</h3>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1a1a1a' }}>💳 Pay Fee</h3>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#888' }}>
               {cls.name} — Rs. {cls.monthlyFee?.toLocaleString()}/month
             </p>
@@ -76,29 +117,86 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
           </button>
         </div>
 
+        {/* Month selector */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block', fontSize: '12px', fontWeight: '700',
+            color: '#555', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px',
+          }}>
+            📅 Select Month to Pay *
+          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {monthOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => !opt.isPaid && setSelectedMonth(opt.value)}
+                disabled={opt.isPaid}
+                style={{
+                  padding: '12px 16px', borderRadius: '10px',
+                  border: '2px solid',
+                  borderColor: selectedMonth === opt.value ? '#1B6B5A'
+                    : opt.isPaid ? '#E8E8E8' : '#E8F5F0',
+                  background: selectedMonth === opt.value ? '#E8F5F0'
+                    : opt.isPaid ? '#F9F9F9' : 'white',
+                  cursor: opt.isPaid ? 'not-allowed' : 'pointer',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  opacity: opt.isPaid ? 0.7 : 1,
+                  transition: 'all 0.2s',
+                }}>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{
+                    margin: 0, fontSize: '14px', fontWeight: '600',
+                    color: selectedMonth === opt.value ? '#1B6B5A' : opt.isPaid ? '#999' : '#1a1a1a',
+                  }}>
+                    {opt.label}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>
+                    Rs. {cls.monthlyFee?.toLocaleString()}
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: '11px', fontWeight: '700', padding: '3px 10px',
+                  borderRadius: '20px',
+                  background: opt.isPaid ? '#E8F5F0'
+                    : selectedMonth === opt.value ? '#1B6B5A' : '#FEF2F2',
+                  color: opt.isPaid ? '#1B6B5A'
+                    : selectedMonth === opt.value ? 'white' : '#DC2626',
+                }}>
+                  {opt.isPaid ? '✓ Paid' : 'Unpaid'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Method selector */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '24px' }}>
-          {[
-            { key: 'cash', label: 'Cash', icon: '💵' },
-            { key: 'card', label: 'Card', icon: '💳' },
-            { key: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' },
-          ].map(m => (
-            <button
-              key={m.key}
-              onClick={() => setMethod(m.key)}
-              style={{
-                padding: '12px 8px', borderRadius: '12px', border: '2px solid',
-                borderColor: method === m.key ? '#1B6B5A' : '#E8E8E8',
-                background: method === m.key ? '#E8F5F0' : 'white',
-                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ fontSize: '20px', marginBottom: '4px' }}>{m.icon}</div>
-              <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: method === m.key ? '#1B6B5A' : '#666' }}>
-                {m.label}
-              </p>
-            </button>
-          ))}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block', fontSize: '12px', fontWeight: '700',
+            color: '#555', marginBottom: '8px', textTransform: 'uppercase',
+          }}>
+            Payment Method
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            {[
+              { key: 'cash', label: 'Cash', icon: '💵' },
+              { key: 'card', label: 'Card', icon: '💳' },
+              { key: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' },
+            ].map(m => (
+              <button key={m.key} onClick={() => setMethod(m.key)}
+                style={{
+                  padding: '12px 8px', borderRadius: '12px', border: '2px solid',
+                  borderColor: method === m.key ? '#1B6B5A' : '#E8E8E8',
+                  background: method === m.key ? '#E8F5F0' : 'white',
+                  cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+                }}>
+                <div style={{ fontSize: '20px', marginBottom: '4px' }}>{m.icon}</div>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: method === m.key ? '#1B6B5A' : '#666' }}>
+                  {m.label}
+                </p>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Cash form */}
@@ -111,17 +209,14 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
               Visit the institute with Rs. {cls.monthlyFee?.toLocaleString()} cash.
               The cashier will scan your barcode and record the payment.
             </p>
-            <textarea
-              placeholder="Add a note (optional)..."
-              value={form.notes}
+            <textarea placeholder="Add a note (optional)..." value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
               style={{
                 width: '100%', marginTop: '12px', padding: '10px 12px',
                 border: '1px solid #C8EDE2', borderRadius: '8px',
                 fontSize: '13px', outline: 'none', resize: 'none',
                 height: '70px', boxSizing: 'border-box',
-              }}
-            />
+              }} />
           </div>
         )}
 
@@ -148,29 +243,19 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#555', marginBottom: '6px' }}>
                   {field.label}
                 </label>
-                <input
-                  type={field.type}
-                  placeholder={field.placeholder}
-                  maxLength={field.maxLength}
-                  value={form[field.key]}
-                  onChange={e => setForm({ ...form, [field.key]: e.target.value })}
+                <input type={field.type} placeholder={field.placeholder} maxLength={field.maxLength}
+                  value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })}
                   style={{
                     width: '100%', padding: '10px 12px', border: '1.5px solid #E8E8E8',
-                    borderRadius: '10px', fontSize: '13px', outline: 'none',
-                    boxSizing: 'border-box', transition: 'border-color 0.2s',
+                    borderRadius: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
                   }}
                   onFocus={e => e.target.style.borderColor = '#1B6B5A'}
-                  onBlur={e => e.target.style.borderColor = '#E8E8E8'}
-                />
+                  onBlur={e => e.target.style.borderColor = '#E8E8E8'} />
               </div>
             ))}
-            <div style={{
-              background: '#FFF9E6', border: '1px solid #F5C518',
-              borderRadius: '10px', padding: '12px', marginTop: '8px',
-            }}>
+            <div style={{ background: '#FFF9E6', border: '1px solid #F5C518', borderRadius: '10px', padding: '12px' }}>
               <p style={{ margin: 0, fontSize: '12px', color: '#856404' }}>
-                ⚠️ This is a payment request. Admin will verify and approve your payment.
-                No actual card charge occurs at this stage.
+                ⚠️ This is a payment request. Admin will verify and approve. No actual charge occurs now.
               </p>
             </div>
           </div>
@@ -179,12 +264,8 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
         {/* Bank transfer form */}
         {method === 'bank_transfer' && (
           <div style={{ marginBottom: '20px' }}>
-            <div style={{
-              background: '#F0F4FF', borderRadius: '12px', padding: '14px', marginBottom: '16px',
-            }}>
-              <p style={{ margin: '0 0 8px', fontWeight: '600', color: '#3B5BDB', fontSize: '13px' }}>
-                🏦 XenEdu Bank Details
-              </p>
+            <div style={{ background: '#F0F4FF', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 8px', fontWeight: '600', color: '#3B5BDB', fontSize: '13px' }}>🏦 XenEdu Bank Details</p>
               <p style={{ margin: '2px 0', fontSize: '13px', color: '#444' }}>Bank: <strong>Bank of Ceylon</strong></p>
               <p style={{ margin: '2px 0', fontSize: '13px', color: '#444' }}>Account: <strong>1234-5678-9012</strong></p>
               <p style={{ margin: '2px 0', fontSize: '13px', color: '#444' }}>Branch: <strong>Mirigama</strong></p>
@@ -198,22 +279,16 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#555', marginBottom: '6px' }}>
                   {field.label}
                 </label>
-                <input
-                  type="text"
-                  placeholder={field.placeholder}
-                  value={form[field.key]}
+                <input type="text" placeholder={field.placeholder} value={form[field.key]}
                   onChange={e => setForm({ ...form, [field.key]: e.target.value })}
                   style={{
                     width: '100%', padding: '10px 12px', border: '1.5px solid #E8E8E8',
-                    borderRadius: '10px', fontSize: '13px', outline: 'none',
-                    boxSizing: 'border-box',
+                    borderRadius: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
                   }}
                   onFocus={e => e.target.style.borderColor = '#1B6B5A'}
-                  onBlur={e => e.target.style.borderColor = '#E8E8E8'}
-                />
+                  onBlur={e => e.target.style.borderColor = '#E8E8E8'} />
               </div>
             ))}
-            {/* Slip upload */}
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#555', marginBottom: '6px' }}>
                 Upload Bank Slip
@@ -222,36 +297,32 @@ const PaymentModal = ({ cls, feeRecord, onClose, onSuccess }) => {
                 display: 'flex', alignItems: 'center', gap: '10px',
                 border: '2px dashed #C8EDE2', borderRadius: '10px',
                 padding: '14px', cursor: 'pointer', background: slip ? '#F0FBF7' : 'white',
-                transition: 'all 0.2s',
               }}>
                 <Upload size={20} color={slip ? '#1B6B5A' : '#999'} />
                 <span style={{ fontSize: '13px', color: slip ? '#1B6B5A' : '#888' }}>
                   {slip ? slip.name : 'Click to upload slip (JPG, PNG, PDF)'}
                 </span>
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  style={{ display: 'none' }}
-                  onChange={e => setSlip(e.target.files[0])}
-                />
+                <input type="file" accept=".jpg,.jpeg,.png,.pdf" style={{ display: 'none' }}
+                  onChange={e => setSlip(e.target.files[0])} />
               </label>
             </div>
           </div>
         )}
 
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
+        {/* Submit button */}
+        <button onClick={handleSubmit} disabled={loading || !selectedMonth}
           style={{
             width: '100%', padding: '14px',
-            background: loading ? '#ccc' : 'linear-gradient(135deg, #1B6B5A, #00B894)',
+            background: loading || !selectedMonth
+              ? '#ccc' : 'linear-gradient(135deg, #1B6B5A, #00B894)',
             color: 'white', border: 'none', borderRadius: '12px',
-            fontSize: '15px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 15px rgba(27,107,90,0.3)',
-          }}
-        >
-          {loading ? 'Submitting...' : `Submit Payment Request — Rs. ${cls.monthlyFee?.toLocaleString()}`}
+            fontSize: '15px', fontWeight: '700',
+            cursor: loading || !selectedMonth ? 'not-allowed' : 'pointer',
+            boxShadow: !selectedMonth ? 'none' : '0 4px 15px rgba(27,107,90,0.3)',
+          }}>
+          {loading ? 'Submitting...'
+            : !selectedMonth ? '← Select a month first'
+            : `Submit Payment — Rs. ${cls.monthlyFee?.toLocaleString()} (${selectedMonth})`}
         </button>
       </div>
     </div>
@@ -263,7 +334,6 @@ const ClassDetail = ({ cls, onBack }) => {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('coursework');
   const [showPayModal, setShowPayModal] = useState(false);
-  const [selectedFee, setSelectedFee] = useState(null);
 
   const { data: courseWork } = useQuery({
     queryKey: ['coursework', cls._id],
@@ -275,12 +345,11 @@ const ClassDetail = ({ cls, onBack }) => {
     queryFn: () => api.get('/payment-requests/my').then(r => r.data),
   });
 
-  const { data: dashboard } = useQuery({
-    queryKey: ['student-dashboard'],
-    queryFn: () => api.get('/dashboard/student').then(r => r.data),
+  const { data: myFees } = useQuery({
+    queryKey: ['my-fees'],
+    queryFn: () => api.get('/fees/student').then(r => r.data),
   });
 
-  const feeForClass = dashboard?.fees?.unpaidFees?.find(f => f.classId === cls._id || true);
   const requestForClass = myRequests?.requests?.find(r =>
     r.classId?._id === cls._id && r.status === 'pending'
   );
@@ -298,14 +367,25 @@ const ClassDetail = ({ cls, onBack }) => {
     rejected: { bg: '#FEF2F2', color: '#DC2626', label: 'Rejected' },
   };
 
+  const paidFees = myFees?.fees?.filter(f =>
+    String(f.classId?._id || f.classId) === String(cls._id) && f.status === 'paid'
+  ) || [];
+
+  const unpaidFees = myFees?.fees?.filter(f =>
+    String(f.classId?._id || f.classId) === String(cls._id) &&
+    (f.status === 'unpaid' || f.status === 'overdue')
+  ) || [];
+
   return (
     <div>
       {showPayModal && (
         <PaymentModal
           cls={cls}
-          feeRecord={feeForClass}
           onClose={() => setShowPayModal(false)}
-          onSuccess={() => queryClient.invalidateQueries(['my-payment-requests'])}
+          onSuccess={() => {
+            queryClient.invalidateQueries(['my-payment-requests']);
+            queryClient.invalidateQueries(['my-fees']);
+          }}
         />
       )}
 
@@ -314,15 +394,12 @@ const ClassDetail = ({ cls, onBack }) => {
         background: 'linear-gradient(135deg, #1B6B5A, #00B894)',
         borderRadius: '16px', padding: '24px', marginBottom: '24px', color: 'white',
       }}>
-        <button
-          onClick={onBack}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            background: 'rgba(255,255,255,0.15)', border: 'none',
-            borderRadius: '8px', padding: '6px 12px', cursor: 'pointer',
-            color: 'white', fontSize: '13px', marginBottom: '16px',
-          }}
-        >
+        <button onClick={onBack} style={{
+          display: 'flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(255,255,255,0.15)', border: 'none',
+          borderRadius: '8px', padding: '6px 12px', cursor: 'pointer',
+          color: 'white', fontSize: '13px', marginBottom: '16px',
+        }}>
           <ArrowLeft size={16} /> Back to classes
         </button>
         <h2 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '800' }}>{cls.name}</h2>
@@ -345,17 +422,13 @@ const ClassDetail = ({ cls, onBack }) => {
           { key: 'coursework', label: '📚 Course Work' },
           { key: 'payment', label: '💳 Payment' },
         ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+          <button key={t.key} onClick={() => setTab(t.key)}
             style={{
               padding: '10px 20px', borderRadius: '8px', border: 'none',
               background: tab === t.key ? '#1B6B5A' : 'transparent',
               color: tab === t.key ? 'white' : '#666',
-              fontWeight: '600', fontSize: '14px', cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
+              fontWeight: '600', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s',
+            }}>
             {t.label}
           </button>
         ))}
@@ -382,8 +455,7 @@ const ClassDetail = ({ cls, onBack }) => {
               return (
                 <div key={i} style={{
                   background: 'white', borderRadius: '14px', padding: '18px 20px',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                  border: '1px solid #F0F0F0',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #F0F0F0',
                   display: 'flex', gap: '16px', alignItems: 'flex-start',
                 }}>
                   <div style={{
@@ -419,30 +491,22 @@ const ClassDetail = ({ cls, onBack }) => {
                       </p>
                     )}
                     {item.link && (
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noreferrer"
+                      <a href={item.link} target="_blank" rel="noreferrer"
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: '6px',
                           marginTop: '10px', color: '#1B6B5A', fontSize: '13px',
                           fontWeight: '600', textDecoration: 'none',
-                        }}
-                      >
+                        }}>
                         <Play size={14} /> Watch Recording
                       </a>
                     )}
                     {item.fileUrl && (
-                      <a
-                        href={`http://localhost:5000${item.fileUrl}`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <a href={`https://192.168.0.72:5000${item.fileUrl}`} target="_blank" rel="noreferrer"
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: '6px',
                           marginTop: '10px', color: '#1B6B5A', fontSize: '13px',
                           fontWeight: '600', textDecoration: 'none',
-                        }}
-                      >
+                        }}>
                         <FileText size={14} /> {item.fileName || 'Download File'}
                       </a>
                     )}
@@ -472,6 +536,11 @@ const ClassDetail = ({ cls, onBack }) => {
                 <p style={{ margin: '4px 0 0', fontSize: '28px', fontWeight: '800', color: '#1B6B5A' }}>
                   Rs. {cls.monthlyFee?.toLocaleString()}
                 </p>
+                {unpaidFees.length > 0 && (
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#DC2626', fontWeight: '600' }}>
+                    ⚠️ {unpaidFees.length} unpaid month{unpaidFees.length > 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
               {requestForClass ? (
                 <div style={{
@@ -483,20 +552,41 @@ const ClassDetail = ({ cls, onBack }) => {
                   {statusColors[requestForClass.status]?.label}
                 </div>
               ) : (
-                <button
-                  onClick={() => setShowPayModal(true)}
+                <button onClick={() => setShowPayModal(true)}
                   style={{
                     background: 'linear-gradient(135deg, #1B6B5A, #00B894)',
                     color: 'white', border: 'none', borderRadius: '12px',
                     padding: '12px 24px', fontWeight: '700', fontSize: '14px',
                     cursor: 'pointer', boxShadow: '0 4px 15px rgba(27,107,90,0.3)',
-                  }}
-                >
+                  }}>
                   Pay Now
                 </button>
               )}
             </div>
           </div>
+
+          {/* Paid months summary */}
+          {paidFees.length > 0 && (
+            <div style={{
+              background: 'white', borderRadius: '16px', padding: '20px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
+                ✅ Paid Months
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {paidFees.map((fee, i) => (
+                  <span key={i} style={{
+                    background: '#E8F5F0', color: '#1B6B5A',
+                    padding: '4px 12px', borderRadius: '20px',
+                    fontSize: '12px', fontWeight: '600',
+                  }}>
+                    ✓ {fee.month}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Payment methods info */}
           <div style={{
@@ -526,14 +616,14 @@ const ClassDetail = ({ cls, onBack }) => {
             </div>
           </div>
 
-          {/* My payment requests for this class */}
+          {/* Payment history */}
           {myRequests?.requests?.filter(r => r.classId?._id === cls._id)?.length > 0 && (
             <div style={{
               background: 'white', borderRadius: '16px', padding: '20px',
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
             }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#1a1a1a' }}>
-                Payment History
+                Payment Requests
               </h3>
               {myRequests.requests
                 .filter(r => r.classId?._id === cls._id)
@@ -544,10 +634,11 @@ const ClassDetail = ({ cls, onBack }) => {
                   }}>
                     <div>
                       <p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: '#1a1a1a' }}>
-                        {req.method.replace('_', ' ').toUpperCase()} — Rs. {req.amount?.toLocaleString()}
+                        {req.method?.replace('_', ' ').toUpperCase()} — Rs. {req.amount?.toLocaleString()}
                       </p>
                       <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>
                         {new Date(req.createdAt).toLocaleDateString()}
+                        {req.month && <span className="ml-2">• {req.month}</span>}
                       </p>
                       {req.rejectReason && (
                         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#DC2626' }}>
@@ -564,8 +655,7 @@ const ClassDetail = ({ cls, onBack }) => {
                       {statusColors[req.status]?.label}
                     </span>
                   </div>
-                ))
-              }
+                ))}
             </div>
           )}
         </div>
@@ -655,15 +745,10 @@ const StudentClasses = () => {
             { key: 'browse', label: 'Browse Classes' },
             { key: 'myclasses', label: `My Classes (${enrolledClasses.length})` },
           ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${
-                activeTab === t.key
-                  ? 'bg-[#1B6B5A] text-white'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
+                activeTab === t.key ? 'bg-[#1B6B5A] text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}>
               {t.label}
             </button>
           ))}
@@ -675,13 +760,9 @@ const StudentClasses = () => {
             <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search classes..."
-                  value={search}
+                <input type="text" placeholder="Search classes..." value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
-                />
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]" />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <select value={filters.subject} onChange={e => setFilters({ ...filters, subject: e.target.value })}
@@ -751,25 +832,20 @@ const StudentClasses = () => {
                     <div className="px-5 pb-5 flex gap-2">
                       {isEnrolled ? (
                         <>
-                          <button
-                            onClick={() => setSelectedClass(cls)}
-                            className="flex-1 py-2.5 bg-[#1B6B5A] text-white rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition"
-                          >
+                          <button onClick={() => setSelectedClass(cls)}
+                            className="flex-1 py-2.5 bg-[#1B6B5A] text-white rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition">
                             View Class
                           </button>
                           <button
                             onClick={() => { if (window.confirm('Unenroll from this class?')) unenrollMutation.mutate(cls._id); }}
-                            className="py-2.5 px-4 bg-red-50 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-100 transition"
-                          >
+                            className="py-2.5 px-4 bg-red-50 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-100 transition">
                             Leave
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => enrollMutation.mutate(cls._id)}
+                        <button onClick={() => enrollMutation.mutate(cls._id)}
                           disabled={isFull || enrollMutation.isPending}
-                          className="w-full py-2.5 bg-[#1B6B5A] text-white rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50"
-                        >
+                          className="w-full py-2.5 bg-[#1B6B5A] text-white rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition disabled:opacity-50">
                           {isFull ? 'Class Full' : 'Enroll Now'}
                         </button>
                       )}
@@ -792,34 +868,27 @@ const StudentClasses = () => {
                 <p className="text-4xl mb-3">📚</p>
                 <p className="text-gray-600 font-semibold">No classes enrolled yet</p>
                 <p className="text-gray-400 text-sm mt-1">Go to Browse Classes to enroll</p>
-                <button
-                  onClick={() => setActiveTab('browse')}
-                  className="mt-4 bg-[#1B6B5A] text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition"
-                >
+                <button onClick={() => setActiveTab('browse')}
+                  className="mt-4 bg-[#1B6B5A] text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#155a4a] transition">
                   Browse Classes
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {enrolledClasses.map(cls => {
-                  const attData = dashboard?.enrolledClasses?.find(c => 
+                  const attData = dashboard?.enrolledClasses?.find(c =>
                     String(c.classId) === String(cls._id)
                   );
                   return (
-                    <div
-                      key={cls._id}
-                      onClick={() => setSelectedClass(cls)}
-                      className="bg-white rounded-xl shadow-sm overflow-hidden border-2 border-[#1B6B5A] cursor-pointer hover:shadow-md transition"
-                    >
+                    <div key={cls._id} onClick={() => setSelectedClass(cls)}
+                      className="bg-white rounded-xl shadow-sm overflow-hidden border-2 border-[#1B6B5A] cursor-pointer hover:shadow-md transition">
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h3 className="font-bold text-gray-800">{cls.name}</h3>
                             <p className="text-xs text-gray-400 mt-0.5">{cls.subject} • {cls.grade}</p>
                           </div>
-                          <span className="bg-[#1B6B5A] text-white text-xs font-bold px-2 py-1 rounded-full">
-                            Enrolled
-                          </span>
+                          <span className="bg-[#1B6B5A] text-white text-xs font-bold px-2 py-1 rounded-full">Enrolled</span>
                         </div>
                         <div className="space-y-1.5 text-sm text-gray-500">
                           <p>👨‍🏫 {cls.teacherId?.userId?.name || 'Not assigned'}</p>
@@ -846,9 +915,7 @@ const StudentClasses = () => {
                           </div>
                         )}
                         <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-[#1B6B5A] font-semibold">
-                            Click to view details →
-                          </span>
+                          <span className="text-xs text-[#1B6B5A] font-semibold">Click to view details →</span>
                           <div className="flex gap-1">
                             <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">📚 Course Work</span>
                             <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">💳 Pay</span>
@@ -862,7 +929,6 @@ const StudentClasses = () => {
             )}
           </div>
         )}
-
       </div>
     </StudentLayout>
   );

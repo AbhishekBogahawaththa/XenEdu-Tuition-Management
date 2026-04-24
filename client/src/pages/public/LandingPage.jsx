@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import ZenyaChat from '../../components/common/ZenyaChat';
 
 // ── Colors ────────────────────────────────────────────────────────
 const C = {
@@ -75,10 +76,8 @@ const CardFace = ({ teacher, size }) => {
   const lg = size === 'large';
   return (
     <>
-      <img
-        src={teacher.photo} alt={teacher.name}
-        style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }}
-      />
+      <img src={teacher.photo} alt={teacher.name}
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
       <div style={{
         position:'absolute', bottom:0, left:0, right:0, height:'65%', zIndex:1,
         background:`linear-gradient(to top, ${teacher.bg}F5, transparent)`,
@@ -105,8 +104,8 @@ const CardFace = ({ teacher, size }) => {
 };
 
 const RollingCard = ({ interval, startIndex, width, height, size }) => {
-  const [cur,  setCur]  = useState(startIndex % teacherCards.length);
-  const [nxt,  setNxt]  = useState((startIndex + 1) % teacherCards.length);
+  const [cur, setCur]     = useState(startIndex % teacherCards.length);
+  const [nxt, setNxt]     = useState((startIndex + 1) % teacherCards.length);
   const [rolling, setRolling] = useState(false);
 
   useEffect(() => {
@@ -152,11 +151,9 @@ const HeroRight = ({ visible }) => (
     transform: visible ? 'translateX(0)' : 'translateX(40px)',
     transition:'opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s',
   }}>
-    {/* blobs */}
-    <div style={{ position:'absolute', top:'5%',   right:'5%', width:300, height:300, borderRadius:'50%', background:C.gold,   opacity:0.08, zIndex:0, pointerEvents:'none' }}/>
-    <div style={{ position:'absolute', bottom:'5%', left:'5%', width:240, height:240, borderRadius:'50%', background:C.green,  opacity:0.07, zIndex:0, pointerEvents:'none' }}/>
+    <div style={{ position:'absolute', top:'5%',   right:'5%', width:300, height:300, borderRadius:'50%', background:C.gold,  opacity:0.08, zIndex:0, pointerEvents:'none' }}/>
+    <div style={{ position:'absolute', bottom:'5%', left:'5%', width:240, height:240, borderRadius:'50%', background:C.green, opacity:0.07, zIndex:0, pointerEvents:'none' }}/>
 
-    {/* pill */}
     <div style={{ position:'relative', zIndex:1, marginBottom:32 }}>
       <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:C.greenPale, border:`1px solid ${C.greenBorder}`, borderRadius:20, padding:'8px 20px' }}>
         <div style={{ width:8, height:8, borderRadius:'50%', background:C.green2, boxShadow:`0 0 0 3px ${C.green2}33` }}/>
@@ -164,7 +161,6 @@ const HeroRight = ({ visible }) => (
       </div>
     </div>
 
-    {/* cards */}
     <div style={{ position:'relative', zIndex:1, display:'flex', gap:20, alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ transform:'translateY(40px)' }}>
         <RollingCard interval={2500} startIndex={0} width={200} height={320} size="small"/>
@@ -183,89 +179,6 @@ const HeroRight = ({ visible }) => (
   </div>
 );
 
-// ── Zenya Chat ────────────────────────────────────────────────────
-const ZenyaChat = () => {
-  const [open,    setOpen]    = useState(false);
-  const [msgs,    setMsgs]    = useState([{ role:'bot', text:"Hi! I'm Zenya 🤖, XenEdu's AI assistant. Ask me anything about classes, subjects, or how to register!" }]);
-  const [input,   setInput]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const msgsRef = useRef(null);
-
-  useEffect(() => {
-    if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
-  }, [msgs]);
-
-  const send = async () => {
-    if (!input.trim() || loading) return;
-    const q = input.trim();
-    setInput(''); setLoading(true);
-    setMsgs(m => [...m, { role:'user', text:q }]);
-    try {
-      // Replace with your own AI call or keep window.claude for the hosted preview
-      const res = await window.claude?.complete({
-        messages:[{ role:'user', content:`You are Zenya, the friendly AI assistant for XenEdu — Sri Lanka's smart A/L tuition system in Mirigama. Subjects: Physics, Chemistry, Biology, Combined Mathematics, Economics, Accounting, ICT, English. Fees Rs 2000-3500/month. Barcode attendance. Parent portal. Contact: xenedu@gmail.com, 033-2242-2589. Answer briefly (2-3 sentences).\n\nStudent: ${q}` }]
-      }) ?? 'Please integrate your AI service here!';
-      setMsgs(m => [...m, { role:'bot', text:res }]);
-    } catch {
-      setMsgs(m => [...m, { role:'bot', text:'Sorry, I had trouble connecting. Please try again!' }]);
-    }
-    setLoading(false);
-  };
-
-  const btnStyle = {
-    position:'fixed', bottom:24, right:24, zIndex:9998,
-    width:56, height:56, borderRadius:'50%', border:'none',
-    background:`linear-gradient(135deg,${C.green},${C.green2})`,
-    cursor:'pointer', boxShadow:`0 4px 20px ${C.green}66`,
-    display:'flex', alignItems:'center', justifyContent:'center', fontSize:24,
-    transition:'transform 0.2s',
-  };
-
-  return (
-    <>
-      <button style={btnStyle}
-        onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
-        onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
-        onClick={() => setOpen(o => !o)}
-      >{open ? '✕' : '🤖'}</button>
-
-      {open && (
-        <div style={{ position:'fixed', bottom:92, right:24, zIndex:9997, width:340, height:460, background:'white', borderRadius:20, boxShadow:'0 16px 56px rgba(0,0,0,0.18)', border:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {/* header */}
-          <div style={{ background:`linear-gradient(135deg,${C.green},${C.green2})`, padding:'16px 20px', display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>🤖</div>
-            <div>
-              <p style={{ margin:0, color:'white', fontWeight:700, fontSize:15 }}>Zenya</p>
-              <p style={{ margin:0, color:'rgba(255,255,255,0.7)', fontSize:12 }}>XenEdu AI Assistant</p>
-            </div>
-          </div>
-          {/* messages */}
-          <div ref={msgsRef} style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-            {msgs.map((m,i) => (
-              <div key={i} style={{ display:'flex', justifyContent: m.role==='user'?'flex-end':'flex-start' }}>
-                <div style={{ maxWidth:'80%', padding:'10px 14px', fontSize:13, lineHeight:1.5,
-                  borderRadius: m.role==='user' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                  background:   m.role==='user' ? C.green : '#F5F5F5',
-                  color:        m.role==='user' ? 'white' : C.dark,
-                }}>{m.text}</div>
-              </div>
-            ))}
-            {loading && <div style={{ background:'#F5F5F5', padding:'10px 16px', borderRadius:'4px 16px 16px 16px', fontSize:13, color:C.muted, width:'fit-content' }}>Typing…</div>}
-          </div>
-          {/* input */}
-          <div style={{ padding:'12px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:8 }}>
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()}
-              placeholder="Ask Zenya anything…"
-              style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #E0E0E0', outline:'none', fontSize:13, fontFamily:'inherit' }}/>
-            <button onClick={send}
-              style={{ padding:'10px 16px', borderRadius:10, border:'none', background:C.green, color:'white', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>→</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
 // ── Main Component ────────────────────────────────────────────────
 const LandingPage = () => {
   const [visible,     setVisible]     = useState(false);
@@ -277,8 +190,7 @@ const LandingPage = () => {
 
   const navLinks = [['Browse Classes','#subjects'],['How It Works','#how'],['Subjects','#subjects'],['For Parents','#why'],['FAQ','#faq']];
 
-  // shared hover helpers (inline style approach — replace with CSS modules/Tailwind as needed)
-  const hoverGreen = e => { e.currentTarget.style.background = C.green;  e.currentTarget.style.color = 'white'; };
+  const hoverGreen = e => { e.currentTarget.style.background = C.green; e.currentTarget.style.color = 'white'; };
   const hoverOff   = (orig) => e => { e.currentTarget.style.background = orig; e.currentTarget.style.color = C.green; };
 
   return (
@@ -313,9 +225,7 @@ const LandingPage = () => {
         <div style={{ position:'absolute', top:-60,  right:'45%', width:300, height:300, borderRadius:'50%', background:C.gold,  opacity:0.09, zIndex:0, pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:-80,right:'55%', width:250, height:250, borderRadius:'50%', background:C.green, opacity:0.06, zIndex:0, pointerEvents:'none' }}/>
 
-        {/* left */}
         <div style={{ flex:1, zIndex:1, opacity:visible?1:0, transform:visible?'translateX(0)':'translateX(-40px)', transition:'opacity 0.9s ease, transform 0.9s ease' }}>
-          {/* badge */}
           <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:C.greenPale, border:`1px solid ${C.greenBorder}`, borderRadius:20, padding:'6px 16px', marginBottom:24 }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:C.green }}/>
             <span style={{ color:C.green, fontSize:13, fontWeight:600 }}>Sri Lanka's Smart Tuition System</span>
@@ -333,7 +243,6 @@ const LandingPage = () => {
             built for <strong style={{ color:C.green }}>Sri Lankan students</strong> who aim for the top.
           </p>
 
-          {/* grade filters */}
           <p style={{ fontSize:12, color:C.muted, fontWeight:700, letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Browse by Grade</p>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
             {['Grade 12','Grade 13','Both'].map(g => (
@@ -411,7 +320,7 @@ const LandingPage = () => {
           {subjects.map((s,i) => (
             <div key={i} style={{ background:'white', borderRadius:16, padding:24, border:`1px solid ${C.border}`, textAlign:'center', cursor:'pointer', transition:'all 0.3s ease' }}
               onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow=`0 12px 30px ${C.green}26`; e.currentTarget.style.borderColor=C.green; }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)';    e.currentTarget.style.boxShadow='none';                      e.currentTarget.style.borderColor=C.border; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.borderColor=C.border; }}
             >
               <div style={{ fontSize:32, marginBottom:12 }}>{s.icon}</div>
               <p style={{ margin:'0 0 6px', fontWeight:700, fontSize:14, color:C.dark }}>{s.name}</p>
@@ -532,6 +441,7 @@ const LandingPage = () => {
         </div>
       </footer>
 
+      {/* ── ZENYA CHAT — uses common component, same as student portal ── */}
       <ZenyaChat/>
     </div>
   );
