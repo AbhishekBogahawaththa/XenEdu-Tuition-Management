@@ -1,10 +1,10 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const Student = require('../models/Student');
 const Parent = require('../models/Parent');
 const FeeRecord = require('../models/FeeRecord');
 const Class = require('../models/Class');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const buildSystemPrompt = async (user) => {
   let context = '';
@@ -124,16 +124,35 @@ You can help with:
   return `${roleInstructions}\n\nREAL-TIME DATA:\n${context}\n\nIMPORTANT: Always respond in English unless the user writes in Sinhala or Tamil. Keep responses helpful and concise.`;
 };
 
-const cleanHistory = (conversationHistory, limit = 10) => {
-  const mapped = conversationHistory
-    .slice(-limit)
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-  const firstUserIndex = mapped.findIndex(m => m.role === 'user');
-  if (firstUserIndex === -1) return [];
-  return mapped.slice(firstUserIndex);
+// ── Shared error handler ──────────────────────────────────────────
+const handleAIError = (error, res, type = 'chat') => {
+  console.error(`AI ${type} error:`, error.message);
+
+  if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('rate_limit')) {
+    return res.status(429).json({
+      message: '⏰ AI is busy right now! Too many requests. Please wait a moment and try again! 🙏',
+      quotaExceeded: true,
+    });
+  }
+
+  if (error.message?.includes('401') || error.message?.includes('invalid_api_key')) {
+    return res.status(401).json({
+      message: '🔑 AI configuration error. Please contact admin.',
+      quotaExceeded: false,
+    });
+  }
+
+  if (error.message?.includes('503') || error.message?.includes('Service Unavailable')) {
+    return res.status(503).json({
+      message: '🔧 AI service temporarily unavailable. Please try again in a moment!',
+      quotaExceeded: false,
+    });
+  }
+
+  return res.status(500).json({
+    message: '❌ AI service error. Please try again shortly.',
+    quotaExceeded: false,
+  });
 };
 
 // @POST /api/ai/chat
@@ -147,21 +166,28 @@ const chat = async (req, res) => {
 
     const systemPrompt = await buildSystemPrompt(req.user);
 
-    // ← Changed from gemini-2.5-flash to gemini-1.5-flash
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: systemPrompt,
+    // Build messages for Groq
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.slice(-10).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    const completion = await groq.chat.completions.create({
+      messages,
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1024,
+      temperature: 0.7,
     });
 
-    const history = cleanHistory(conversationHistory, 10);
-    const chatSession = model.startChat({ history });
-    const result = await chatSession.sendMessage(message);
-    const reply = result.response.text();
-
+    const reply = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
     res.status(200).json({ reply });
+
   } catch (error) {
-    console.error('AI chat error:', error.message);
-    res.status(500).json({ message: 'AI service error: ' + error.message });
+    handleAIError(error, res, 'chat');
   }
 };
 
@@ -191,20 +217,28 @@ Economics, Accounting, Business Studies, History, Geography, ICT, English, Sinha
 
 Always be encouraging and patient. Make learning enjoyable!`;
 
-    // ← Changed from gemini-2.5-flash to gemini-1.5-flash
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: systemPrompt,
+    // Build messages for Groq
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.slice(-20).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    const completion = await groq.chat.completions.create({
+      messages,
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 2048,
+      temperature: 0.7,
     });
 
-    const history = cleanHistory(conversationHistory, 20);
-    const chatSession = model.startChat({ history });
-    const result = await chatSession.sendMessage(message);
+    const reply = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+    res.status(200).json({ reply });
 
-    res.status(200).json({ reply: result.response.text() });
   } catch (error) {
-    console.error('AI learn error:', error.message);
-    res.status(500).json({ message: 'AI service error: ' + error.message });
+    handleAIError(error, res, 'learn');
   }
 };
 
