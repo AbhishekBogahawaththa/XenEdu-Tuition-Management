@@ -4,12 +4,12 @@ const Payment = require('../models/Payment');
 const Student = require('../models/Student');
 const mongoose = require('mongoose');
 
-// @POST /api/payment-requests  ← student submits
+// @POST /api/payment-requests ← student submits
 const submitPaymentRequest = async (req, res) => {
   try {
     const {
-      classId, feeRecordId, amount, method,
-      cardHolderName, cardLastFour,
+      classId, feeRecordId, amount, method, month,
+      cardHolderName, cardLastFour, cardType,
       bankName, transactionRef, notes,
     } = req.body;
 
@@ -20,26 +20,96 @@ const submitPaymentRequest = async (req, res) => {
     const student = await Student.findOne({ userId: req.user._id });
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // Resolve feeRecordId — find one if not provided or undefined
+    if (student.status === 'suspended') {
+      return res.status(403).json({
+        message: `Your account is suspended. Reason: ${student.suspendReason || 'Contact admin'}. Please contact the institute to resolve your suspension before making payments.`,
+        suspended: true,
+        reason: student.suspendReason,
+      });
+    }
+
+    // Resolve feeRecordId
     let resolvedFeeRecordId = null;
     if (feeRecordId && feeRecordId !== 'undefined' && mongoose.Types.ObjectId.isValid(feeRecordId)) {
       resolvedFeeRecordId = feeRecordId;
     } else {
-      // Try to find an unpaid fee record for this class
       const feeRecord = await FeeRecord.findOne({
         studentId: student._id,
         classId,
+        month,
         status: { $in: ['unpaid', 'overdue'] },
       }).sort({ createdAt: -1 });
       resolvedFeeRecordId = feeRecord?._id || null;
     }
 
+    // ── Auto approve card payments ────────────────────────────
+    if (method === 'card') {
+      const receiptNumber = 'CARD-' + Date.now().toString().slice(-6);
+
+      const request = await PaymentRequest.create({
+        studentId: student._id,
+        classId,
+        feeRecordId: resolvedFeeRecordId,
+        amount,
+        method,
+        month: month || undefined,
+        cardHolderName: cardHolderName || undefined,
+        cardLastFour: cardLastFour || undefined,
+        status: 'approved',
+        reviewedAt: new Date(),
+        receiptNumber,
+      });
+
+      // Mark this specific month's fee as paid
+      if (resolvedFeeRecordId) {
+        await FeeRecord.findByIdAndUpdate(resolvedFeeRecordId, {
+          status: 'paid', paidAt: new Date(),
+        });
+      } else if (month) {
+        await FeeRecord.findOneAndUpdate(
+          { studentId: student._id, classId, month },
+          { status: 'paid', paidAt: new Date() }
+        );
+      }
+
+      // Create payment record
+      await Payment.create({
+        feeRecordId: resolvedFeeRecordId || new mongoose.Types.ObjectId(),
+        studentId: student._id,
+        classId,
+        amount,
+        method: 'card',
+        month: month || undefined,
+        receiptNumber,
+        collectedBy: req.user._id,
+      });
+
+      // ── Try re-enroll — only succeeds if ALL months now paid ─
+      const { reEnrollAfterPayment } = require('../middleware/paymentEnforcer');
+      const reEnrollResult = await reEnrollAfterPayment(student._id, classId);
+
+      return res.status(201).json({
+        success: true,
+        autoApproved: true,
+        receiptNumber,
+        reEnrolled: reEnrollResult.success && reEnrollResult.reEnrolled,
+        stillOwed: reEnrollResult.unpaidMonths || [],
+        remainingAmount: reEnrollResult.remainingAmount || 0,
+        message: reEnrollResult.success
+          ? 'Payment approved! You have been re-enrolled.'
+          : `Payment approved! Still need to pay: ${reEnrollResult.reason}`,
+        requestId: request._id,
+      });
+    }
+
+    // ── Cash / Bank Transfer → pending approval ───────────────
     const request = await PaymentRequest.create({
       studentId: student._id,
       classId,
       feeRecordId: resolvedFeeRecordId,
       amount,
       method,
+      month: month || undefined,
       cardHolderName: cardHolderName || undefined,
       cardLastFour: cardLastFour || undefined,
       bankName: bankName || undefined,
@@ -50,6 +120,8 @@ const submitPaymentRequest = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
+      autoApproved: false,
       message: 'Payment request submitted. Admin will approve shortly.',
       requestId: request._id,
     });
@@ -59,7 +131,7 @@ const submitPaymentRequest = async (req, res) => {
   }
 };
 
-// @GET /api/payment-requests  ← admin sees all
+// @GET /api/payment-requests ← admin sees all
 const getPaymentRequests = async (req, res) => {
   try {
     const { status } = req.query;
@@ -74,7 +146,7 @@ const getPaymentRequests = async (req, res) => {
   }
 };
 
-// @GET /api/payment-requests/my  ← student sees own
+// @GET /api/payment-requests/my ← student sees own
 const getMyPaymentRequests = async (req, res) => {
   try {
     const student = await Student.findOne({ userId: req.user._id });
@@ -88,7 +160,7 @@ const getMyPaymentRequests = async (req, res) => {
   }
 };
 
-// @PATCH /api/payment-requests/:id/approve  ← admin
+// @PATCH /api/payment-requests/:id/approve ← admin
 const approvePaymentRequest = async (req, res) => {
   try {
     const request = await PaymentRequest.findById(req.params.id)
@@ -100,18 +172,17 @@ const approvePaymentRequest = async (req, res) => {
       return res.status(400).json({ message: `Already ${request.status}` });
     }
 
-    // Find fee record if not linked
     let feeRecordId = request.feeRecordId;
     if (!feeRecordId) {
       const feeRecord = await FeeRecord.findOne({
         studentId: request.studentId._id,
         classId: request.classId._id,
+        month: request.month,
         status: { $in: ['unpaid', 'overdue'] },
       }).sort({ createdAt: -1 });
       feeRecordId = feeRecord?._id;
     }
 
-    // Create payment record
     const payment = await Payment.create({
       feeRecordId: feeRecordId || new mongoose.Types.ObjectId(),
       studentId: request.studentId._id,
@@ -121,23 +192,29 @@ const approvePaymentRequest = async (req, res) => {
       collectedBy: req.user._id,
     });
 
-    // Update fee record status to paid
     if (feeRecordId) {
       await FeeRecord.findByIdAndUpdate(feeRecordId, {
-        status: 'paid',
-        paidAt: new Date(),
+        status: 'paid', paidAt: new Date(),
       });
     }
 
-    // Update request status
     request.status = 'approved';
     request.reviewedBy = req.user._id;
     request.reviewedAt = new Date();
     await request.save();
 
+    // ── Try re-enroll — only succeeds if ALL months now paid ──
+    const { reEnrollAfterPayment } = require('../middleware/paymentEnforcer');
+    const reEnrollResult = await reEnrollAfterPayment(
+      request.studentId._id,
+      request.classId._id
+    );
+
     res.json({
       message: 'Payment approved',
       receiptNumber: payment.receiptNumber,
+      reEnrolled: reEnrollResult.success && reEnrollResult.reEnrolled,
+      stillOwed: reEnrollResult.unpaidMonths || [],
     });
   } catch (e) {
     console.error('Approve payment request error:', e.message);
@@ -145,7 +222,7 @@ const approvePaymentRequest = async (req, res) => {
   }
 };
 
-// @PATCH /api/payment-requests/:id/reject  ← admin
+// @PATCH /api/payment-requests/:id/reject ← admin
 const rejectPaymentRequest = async (req, res) => {
   try {
     const { reason } = req.body;
@@ -154,13 +231,11 @@ const rejectPaymentRequest = async (req, res) => {
     if (request.status !== 'pending') {
       return res.status(400).json({ message: `Already ${request.status}` });
     }
-
     request.status = 'rejected';
     request.rejectReason = reason || 'No reason provided';
     request.reviewedBy = req.user._id;
     request.reviewedAt = new Date();
     await request.save();
-
     res.json({ message: 'Payment rejected' });
   } catch (e) {
     res.status(500).json({ message: e.message });

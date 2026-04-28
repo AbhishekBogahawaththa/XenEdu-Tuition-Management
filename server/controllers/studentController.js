@@ -149,20 +149,36 @@ const updateStudent = async (req, res) => {
 };
 
 // @PATCH /api/students/:id/status
+// @PATCH /api/students/:id/status
 const updateStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, reason } = req.body;
+
+    const updateData = { status };
+
+    if (status === 'suspended') {
+      updateData.suspendReason = reason || 'No reason provided';
+      updateData.suspendedAt = new Date();
+      updateData.suspendedBy = req.user._id;
+    } else if (status === 'active') {
+      // Clear suspension info when reactivating
+      updateData.suspendReason = null;
+      updateData.suspendedAt = null;
+      updateData.suspendedBy = null;
+    }
+
     const student = await Student.findByIdAndUpdate(
       req.params.id,
-      { status },
+      updateData,
       { new: true }
     ).populate('userId', 'name email');
 
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
+    if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    res.status(200).json({ message: `Student status updated to ${status}`, student });
+    res.status(200).json({
+      message: `Student ${status === 'suspended' ? 'suspended' : 'activated'} successfully`,
+      student,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

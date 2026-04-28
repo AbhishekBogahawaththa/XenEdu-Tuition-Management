@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import QRScanner from '../../components/common/QRScanner';
 import {
   CheckCircle, XCircle, Clock, Scan,
-  Users, RefreshCw, Search, Camera,
+  Users, RefreshCw, Search, Camera, AlertTriangle,
 } from 'lucide-react';
 
 const TeacherAttendance = () => {
@@ -17,6 +17,7 @@ const TeacherAttendance = () => {
   const [markStatus, setMarkStatus] = useState('present');
   const [attendanceMap, setAttendanceMap] = useState({});
   const [showScanner, setShowScanner] = useState(false);
+  const [paymentWarning, setPaymentWarning] = useState(null);
   const scanInputRef = useRef(null);
 
   const { data: myClasses } = useQuery({
@@ -70,13 +71,25 @@ const TeacherAttendance = () => {
     onSuccess: (res) => {
       const studentId = String(res.data.attendance?.studentId);
       setAttendanceMap(prev => ({ ...prev, [studentId]: markStatus }));
-      toast.success(`✅ ${res.data.studentName} marked as ${markStatus}`);
+      toast.success(`✅ ${res.data.student?.name} marked as ${markStatus}`);
+      setPaymentWarning(null);
       setScanValue('');
       scanInputRef.current?.focus();
       queryClient.invalidateQueries(['session-students-teacher', selectedSessionId]);
     },
-    onError: err => {
-      toast.error(err.response?.data?.message || 'Student not found');
+    onError: (err) => {
+      // ── Payment blocked warning ───────────────────────────────
+      if (err.response?.data?.blocked) {
+        const d = err.response.data.details;
+        setPaymentWarning(d);
+        toast.error(
+          `🚫 BLOCKED: ${d?.studentName} — Payment required for ${d?.month}`,
+          { duration: 5000 }
+        );
+      } else {
+        setPaymentWarning(null);
+        toast.error(err.response?.data?.message || 'Student not found');
+      }
       setScanValue('');
       scanInputRef.current?.focus();
     },
@@ -100,12 +113,14 @@ const TeacherAttendance = () => {
   const handleScan = () => {
     if (!scanValue.trim()) return;
     if (!selectedSessionId) { toast.error('Please select a session first'); return; }
+    setPaymentWarning(null);
     markByBarcodeMutation.mutate({ admissionNumber: scanValue.trim(), status: markStatus });
   };
 
   const handleQRScan = (admissionNumber) => {
     setShowScanner(false);
     if (!selectedSessionId) { toast.error('Select a session first'); return; }
+    setPaymentWarning(null);
     markByBarcodeMutation.mutate({ admissionNumber, status: markStatus });
   };
 
@@ -145,13 +160,8 @@ const TeacherAttendance = () => {
     <TeacherLayout>
       <div className="space-y-6">
 
-        {/* QR Scanner Modal */}
         {showScanner && (
-          <QRScanner
-            onScan={handleQRScan}
-            onClose={() => setShowScanner(false)}
-            title="Mark Attendance"
-          />
+          <QRScanner onScan={handleQRScan} onClose={() => setShowScanner(false)} title="Mark Attendance" />
         )}
 
         <div>
@@ -170,8 +180,8 @@ const TeacherAttendance = () => {
                 <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Class</label>
                 <select
                   value={selectedClassId}
-                  onChange={e => { setSelectedClassId(e.target.value); setSelectedSessionId(''); setAttendanceMap({}); }}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
+                  onChange={e => { setSelectedClassId(e.target.value); setSelectedSessionId(''); setAttendanceMap({}); setPaymentWarning(null); }}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]"
                 >
                   <option value="">Choose a class...</option>
                   {myClasses?.classes?.map(cls => (
@@ -185,8 +195,8 @@ const TeacherAttendance = () => {
                   <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Session</label>
                   <select
                     value={selectedSessionId}
-                    onChange={e => { setSelectedSessionId(e.target.value); setAttendanceMap({}); }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
+                    onChange={e => { setSelectedSessionId(e.target.value); setAttendanceMap({}); setPaymentWarning(null); }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]"
                   >
                     <option value="">Choose session...</option>
                     {sessions?.sessions?.filter(s => s.status !== 'cancelled')?.map(session => (
@@ -197,15 +207,40 @@ const TeacherAttendance = () => {
               )}
             </div>
 
+            {/* Payment warning box */}
+            {paymentWarning && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={18} className="text-red-600" />
+                  <p className="font-bold text-red-700 text-sm">🚫 Payment Required!</p>
+                </div>
+                <div className="space-y-1 text-xs text-red-600">
+                  <p><span className="font-bold">Student:</span> {paymentWarning.studentName}</p>
+                  <p><span className="font-bold">ID:</span> {paymentWarning.admissionNumber}</p>
+                  <p><span className="font-bold">Class:</span> {paymentWarning.className}</p>
+                  <p><span className="font-bold">Month:</span> {paymentWarning.month}</p>
+                  <p><span className="font-bold">Amount Due:</span> Rs. {paymentWarning.amount?.toLocaleString()}</p>
+                </div>
+                <p className="text-xs text-red-500 mt-2 font-semibold">
+                  ⛔ Cannot admit to class until fee is paid.
+                </p>
+                <button
+                  onClick={() => setPaymentWarning(null)}
+                  className="mt-2 text-xs text-red-400 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Scan section */}
             {selectedSessionId && (
               <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
                 <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                  <Scan size={16} className="text-[#1B6B5A]" />
+                  <Scan size={16} className="text-[#0d6b7a]" />
                   Scan Student ID
                 </h3>
 
-                {/* Status selector */}
                 <div className="grid grid-cols-3 gap-2">
                   {['present', 'absent', 'late'].map(s => {
                     const config = statusConfig[s];
@@ -215,13 +250,13 @@ const TeacherAttendance = () => {
                           markStatus === s
                             ? `${config.color} text-white border-transparent`
                             : `${config.bg} ${config.text} ${config.border}`
-                        }`}
-                      >{config.label}</button>
+                        }`}>
+                        {config.label}
+                      </button>
                     );
                   })}
                 </div>
 
-                {/* Text input */}
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-3 text-gray-400" />
                   <input
@@ -232,11 +267,10 @@ const TeacherAttendance = () => {
                     onKeyDown={e => e.key === 'Enter' && handleScan()}
                     placeholder="Scan or type admission no..."
                     autoFocus
-                    className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1B6B5A]"
+                    className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]"
                   />
                 </div>
 
-                {/* Mark button */}
                 <button
                   onClick={handleScan}
                   disabled={!scanValue.trim() || markByBarcodeMutation.isPending}
@@ -244,26 +278,19 @@ const TeacherAttendance = () => {
                     markStatus === 'present' ? 'bg-green-500 hover:bg-green-600'
                     : markStatus === 'absent' ? 'bg-red-500 hover:bg-red-600'
                     : 'bg-yellow-500 hover:bg-yellow-600'
-                  }`}
-                >
-                  {markByBarcodeMutation.isPending ? 'Marking...' : `Mark as ${markStatus}`}
+                  }`}>
+                  {markByBarcodeMutation.isPending ? 'Checking...' : `Mark as ${markStatus}`}
                 </button>
 
-                {/* Camera scanner button */}
                 <button
-                  onClick={() => {
-                    if (!selectedSessionId) { toast.error('Select a session first'); return; }
-                    setShowScanner(true);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 bg-[#1B6B5A] text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-[#155a4a] transition"
+                  onClick={() => { if (!selectedSessionId) { toast.error('Select a session first'); return; } setShowScanner(true); }}
+                  className="w-full flex items-center justify-center gap-2 bg-[#0d6b7a] text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-[#0a505d] transition"
                 >
                   <Camera size={16} />
                   📷 Open Camera Scanner
                 </button>
 
-                <p className="text-xs text-gray-400 text-center">
-                  Use camera to scan QR code or barcode
-                </p>
+                <p className="text-xs text-gray-400 text-center">Press Enter or click Mark to scan</p>
               </div>
             )}
 
@@ -287,7 +314,7 @@ const TeacherAttendance = () => {
             )}
           </div>
 
-          {/* Right panel — student list */}
+          {/* Right panel */}
           <div className="col-span-2">
             {!selectedSessionId ? (
               <div className="bg-white rounded-xl shadow-sm h-full min-h-64 flex flex-col items-center justify-center text-gray-400 p-12">
@@ -298,8 +325,7 @@ const TeacherAttendance = () => {
             ) : (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
 
-                {/* Session header */}
-                <div className="bg-gradient-to-r from-[#1B6B5A] to-[#00B894] px-6 py-4 text-white">
+                <div className="bg-gradient-to-r from-[#0d6b7a] to-[#00b8c8] px-6 py-4 text-white">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Session</p>
@@ -345,7 +371,6 @@ const TeacherAttendance = () => {
                   )}
                 </div>
 
-                {/* Students list */}
                 {loadingStudents ? (
                   <div className="p-12 text-center text-gray-400">
                     <RefreshCw size={24} className="mx-auto mb-2 animate-spin" />
@@ -369,8 +394,7 @@ const TeacherAttendance = () => {
                               : status === 'absent' ? 'bg-red-50/50'
                               : status === 'late' ? 'bg-yellow-50/50'
                               : 'hover:bg-gray-50'
-                            }`}
-                          >
+                            }`}>
                             <div className="flex items-center gap-3">
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                 status === 'present' ? 'bg-green-500'
@@ -382,7 +406,7 @@ const TeacherAttendance = () => {
                                 status === 'present' ? 'bg-green-500'
                                 : status === 'absent' ? 'bg-red-400'
                                 : status === 'late' ? 'bg-yellow-500'
-                                : 'bg-[#1B6B5A]'
+                                : 'bg-[#0d6b7a]'
                               }`}>
                                 {student.userId?.name?.charAt(0)?.toUpperCase() || '?'}
                               </div>
@@ -404,9 +428,7 @@ const TeacherAttendance = () => {
                                     onClick={() => handleManualMark(String(student._id), s)}
                                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                                       status === s ? `${c.color} text-white` : `${c.bg} ${c.text} hover:opacity-80`
-                                    }`}
-                                    title={c.label}
-                                  >
+                                    }`}>
                                     {s === 'present' ? '✓' : s === 'absent' ? '✗' : '⏰'}
                                   </button>
                                 );
@@ -424,12 +446,12 @@ const TeacherAttendance = () => {
                         <span className="text-red-500 font-semibold">{absentCount} absent</span>
                         {' • '}
                         <span className="text-yellow-600 font-semibold">{lateCount} late</span>
-                        {unmarkedCount > 0 && <><span className="text-gray-400"> • {unmarkedCount} unmarked</span></>}
+                        {unmarkedCount > 0 && <span className="text-gray-400"> • {unmarkedCount} unmarked</span>}
                       </p>
                       <button
                         onClick={() => saveAttendanceMutation.mutate()}
                         disabled={saveAttendanceMutation.isPending || Object.values(attendanceMap).every(s => s === null)}
-                        className="flex items-center gap-2 bg-[#1B6B5A] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#155a4a] transition disabled:opacity-50"
+                        className="flex items-center gap-2 bg-[#0d6b7a] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#0a505d] transition disabled:opacity-50"
                       >
                         {saveAttendanceMutation.isPending ? (
                           <><RefreshCw size={16} className="animate-spin" /> Saving...</>

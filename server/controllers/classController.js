@@ -156,6 +156,14 @@ const enrollStudent = async (req, res) => {
     const student = await Student.findOne({ userId: req.user._id });
     if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
+    // ── Block enrollment if suspended ─────────────────────────────
+    if (student.status === 'suspended') {
+      return res.status(403).json({
+        message: `Your account is suspended. Reason: ${student.suspendReason || 'Contact admin'}. You cannot enroll in classes until your suspension is lifted.`,
+        suspended: true,
+      });
+    }
+
     if (cls.enrolledStudents.map(id => id.toString()).includes(student._id.toString())) {
       return res.status(400).json({ message: 'Already enrolled in this class' });
     }
@@ -227,13 +235,26 @@ const removeStudentFromClass = async (req, res) => {
 const suspendStudent = async (req, res) => {
   try {
     const User = require('../models/User');
-    const { action } = req.body;
+    const { action, reason } = req.body;
 
     const student = await Student.findById(req.params.studentId)
       .populate('userId');
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
     student.status = action === 'suspend' ? 'suspended' : 'active';
+
+    // ── Save suspension details ───────────────────────────────
+    if (action === 'suspend') {
+      student.suspendReason = reason || 'No reason provided';
+      student.suspendedAt = new Date();
+      student.suspendedBy = req.user._id;
+    } else {
+      // Clear on reactivation
+      student.suspendReason = null;
+      student.suspendedAt = null;
+      student.suspendedBy = null;
+    }
+
     await student.save();
 
     await User.findByIdAndUpdate(student.userId._id, {
@@ -242,6 +263,7 @@ const suspendStudent = async (req, res) => {
 
     res.status(200).json({
       message: `Student ${action === 'suspend' ? 'suspended' : 'activated'} successfully`,
+      student,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

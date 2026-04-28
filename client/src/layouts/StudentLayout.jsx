@@ -19,10 +19,12 @@ const StudentLayout = ({ children }) => {
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const handleLogout = () => {
+  if (window.confirm('Are you sure you want to logout?')) {
     logout();
     toast.success('Logged out successfully');
     navigate('/login');
-  };
+  }
+};
 
   return (
     <div className="flex h-screen bg-gray-100 font-roboto overflow-hidden">
