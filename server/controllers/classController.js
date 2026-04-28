@@ -257,9 +257,7 @@ const suspendStudent = async (req, res) => {
 
     await student.save();
 
-    await User.findByIdAndUpdate(student.userId._id, {
-      isActive: action !== 'suspend',
-    });
+    await User.findByIdAndUpdate(student.userId._id, { isActive: true });
 
     res.status(200).json({
       message: `Student ${action === 'suspend' ? 'suspended' : 'activated'} successfully`,
