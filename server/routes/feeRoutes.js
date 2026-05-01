@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   generateMonthlyFees,
   payFee,
+  getMyFees,
   getStudentFees,
   getStudentPayments,
   voidPayment,
@@ -24,22 +25,8 @@ router.get('/reports/teacher/:teacherId', authorize('admin'), getTeacherReport);
 router.delete('/payments/:id/void', authorize('admin'), voidPayment);
 router.get('/payments/student/:studentId', getStudentPayments);
 
-// ← Must be BEFORE /student/:studentId to avoid conflict
-router.get('/student', async (req, res) => {
-  try {
-    const Student = require('../models/Student');
-    const FeeRecord = require('../models/FeeRecord');
-    const student = await Student.findOne({ userId: req.user._id });
-    if (!student) return res.status(404).json({ message: 'Student not found' });
-    const fees = await FeeRecord.find({ studentId: student._id })
-      .populate('classId', 'name subject monthlyFee')
-      .sort({ month: -1 });
-    res.json({ fees });
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-});
-
+// ── Student own fees (auto marks overdue) ─────────────────────
+router.get('/student', getMyFees);
 router.get('/student/:studentId', getStudentFees);
 
 module.exports = router;

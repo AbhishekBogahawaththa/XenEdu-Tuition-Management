@@ -176,6 +176,33 @@ const enrollStudent = async (req, res) => {
     student.enrolledClasses.push(cls._id);
     await student.save();
 
+    try {
+  const FeeRecord = require('../models/FeeRecord');
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const now = new Date();
+  const dueDate = new Date(now.getFullYear(), now.getMonth(), 21);
+
+  const existing = await FeeRecord.findOne({
+    studentId: student._id,
+    classId: cls._id,
+    month: currentMonth,
+  });
+
+  if (!existing) {
+    await FeeRecord.create({
+      studentId: student._id,
+      classId: cls._id,
+      amount: cls.monthlyFee,
+      month: currentMonth,
+      dueDate,
+      status: 'unpaid',
+    });
+    console.log(`💰 Auto-created fee record for ${student.admissionNumber} in ${cls.name} for ${currentMonth}`);
+  }
+} catch (err) {
+  console.log('Fee record creation failed:', err.message);
+}
+
     res.status(200).json({
       message: `Successfully enrolled in ${cls.name}`,
       class: { name: cls.name, subject: cls.subject, hall: cls.hall, schedule: cls.schedule, monthlyFee: cls.monthlyFee },
@@ -245,19 +272,26 @@ const suspendStudent = async (req, res) => {
 
     // ── Save suspension details ───────────────────────────────
     if (action === 'suspend') {
-      student.suspendReason = reason || 'No reason provided';
-      student.suspendedAt = new Date();
-      student.suspendedBy = req.user._id;
-    } else {
-      // Clear on reactivation
-      student.suspendReason = null;
-      student.suspendedAt = null;
-      student.suspendedBy = null;
+    student.suspendReason = reason || 'No reason provided';
+    student.suspendedAt = new Date();
+    student.suspendedBy = req.user._id;
+  } else {
+    // Clear suspension
+    student.suspendReason = null;
+    student.suspendedAt = null;
+    student.suspendedBy = null;
+
+    // ── Re-add student to their enrolled classes ──────────────
+    // The cron may have removed them — add back to class enrolledStudents
+    for (const classId of student.enrolledClasses) {
+      await Class.findByIdAndUpdate(classId, {
+        $addToSet: { enrolledStudents: student._id }
+      });
     }
+  }
 
-    await student.save();
-
-    await User.findByIdAndUpdate(student.userId._id, { isActive: true });
+  await student.save();
+  await User.findByIdAndUpdate(student.userId._id, { isActive: true });
 
     res.status(200).json({
       message: `Student ${action === 'suspend' ? 'suspended' : 'activated'} successfully`,

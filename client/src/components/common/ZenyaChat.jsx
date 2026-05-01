@@ -3,38 +3,55 @@ import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 
 const faqs = [
-  'What classes are available?',
+  'What subjects are available?',
   'How do I pay my fees?',
   'What is the attendance policy?',
   'How do I enroll in a class?',
-  'What are the class timings?',
-  'How can I view my results?',
+  'What are the payment methods?',
+  'How does suspension work?',
 ];
 
 const guestFAQAnswers = {
-  'what classes are available': `We offer A/L classes for the following subjects at XenEdu Mirigama:\n\n📚 Science Stream:\n• Physics\n• Chemistry\n• Biology\n• Combined Mathematics\n\n📊 Commerce Stream:\n• Accounting\n• Economics\n• Business Studies\n\n💻 Technology:\n• ICT\n\n📝 Languages:\n• English\n• Sinhala\n\nClasses are available for both Grade 12 and Grade 13 in Sinhala, Tamil and English mediums! 😊`,
-  'how do i pay my fees': `At XenEdu, you can pay your fees in 3 ways:\n\n💵 Cash — Pay at the institute counter.\n💳 Card — Pay by debit/credit card at the counter.\n🏦 Bank Transfer — Transfer and upload the slip via your portal.\n\n📍 Bank: Bank of Ceylon\n🔢 Account: 1234-5678-9012\n🏢 Branch: Mirigama\n\nContact us at 033-2242-2589 for more details! 😊`,
-  'what is the attendance policy': `At XenEdu, we require a minimum of 80% attendance.\n\n📊 Attendance is marked using your student ID barcode.\n⚠️ If your attendance drops below 80% your parent will receive an alert.\n\nRegular attendance is key to success in A/Ls! 💪`,
-  'how do i enroll in a class': `Enrolling at XenEdu is simple! 😊\n\n1️⃣ Register — Fill in your details online.\n2️⃣ Admin Approval — Get login credentials via email.\n3️⃣ Browse & Enroll — Login and enroll in subjects.\n4️⃣ Pay Fees — At counter or via bank transfer.\n\nNeed help? Call 033-2242-2589! 🎓`,
-  'what are the class timings': `Class timings vary by subject and teacher.\n\n⏰ Morning: 7:00 AM - 12:00 PM\n⏰ Evening: 2:00 PM - 7:00 PM\n📅 Weekdays and weekends\n\nContact: 📞 033-2242-2589 📧 xenedu@gmail.com`,
-  'how can i view my results': `Track your progress via the student portal:\n\n📊 Attendance %, payment history, enrolled classes and outstanding fees.\n\nParents can monitor via the parent portal! 👨‍👩‍👧\n\nExam results are provided directly by teachers.`,
+  'what subjects are available': `XenEdu Mirigama offers A/L classes for Grade 12 and Grade 13 in Sinhala, Tamil and English mediums.\n\nPhysical Science Stream:\nCombined Mathematics, Physics, Chemistry, Biology, Higher Mathematics\n\nBiological Science Stream:\nBiology, Chemistry, Agriculture & Food Technology\n\nCommerce Stream:\nEconomics, Accounting, Business Studies, Business Statistics\n\nTechnology Stream:\nICT, Engineering Technology, Bio Systems Technology\n\nArts Stream:\nHistory, Geography, Political Science, Logic & Scientific Method, Buddhist/Hindu/Islamic/Christian Civilization, Economics\n\nLanguages:\nSinhala, Tamil, English, Pali, Sanskrit, Arabic, French, German, Japanese, Chinese, Korean, Hindi\n\nArts Subjects:\nArt, Dancing (Indigenous/Bharatha), Drama & Theatre (Sinhala/Tamil/English), Music (Oriental/Western/Carnatic)\n\nContact us for current class availability: 033-2242-2589`,
+
+  'how do i pay my fees': `At XenEdu, fees are managed through your student portal.\n\nPayment Methods:\n\n1. Cash — Visit the institute counter, show your student barcode, pay to cashier. Updates automatically.\n\n2. Card — Pay via debit/credit card through the portal. Approved instantly, no waiting.\n\n3. Bank Transfer — Transfer to our account, enter reference number. Admin verifies within 24 hours.\n\nBank Details:\nBank: Bank of Ceylon\nAccount: 1234-5678-9012\nBranch: Mirigama\nName: XenEdu Institute\n\nImportant:\n- Fees must be paid by the 21st of each month\n- After week 3 unpaid, attendance will be blocked\n- Must clear ALL past months to re-enroll\n\nContact: 033-2242-2589`,
+
+  'what is the attendance policy': `XenEdu requires a minimum of 80% attendance per class.\n\nHow it works:\n- Attendance marked via student ID barcode or QR code scan\n- Teacher scans your ID at the start of each session\n- You can track attendance % in your student dashboard\n- Parent portal shows real-time attendance updates\n\nPayment & Attendance:\n- If fees unpaid after week 3 of the month, attendance scan will be blocked\n- Pay outstanding fees to restore attendance access\n\nIf attendance drops below 80%, your parent will be notified.\n\nContact: 033-2242-2589`,
+
+  'how do i enroll in a class': `Enrolling at XenEdu is simple!\n\n1. Register online — Fill in your details and submit the registration form\n2. Admin approval — You receive login credentials via email\n3. Login to student portal — Browse available classes\n4. Enroll — Click Enroll Now on your chosen class\n5. Fee record created — Your first month fee is generated automatically\n6. Pay fees — Via cash, card or bank transfer\n\nNote:\n- You cannot enroll if your account is suspended\n- Class capacity is limited, enroll early!\n- Fees are generated from your enrollment month only\n\nNeed help? Call 033-2242-2589`,
+
+  'what are the payment methods': `XenEdu supports 3 payment methods:\n\n1. Cash\n- Visit the institute counter\n- Show your student barcode\n- Cashier scans and records payment instantly\n- No portal submission needed\n\n2. Card (Debit/Credit)\n- Pay through the student portal\n- VISA, MasterCard, AMEX accepted\n- Approved instantly — no admin wait\n- Receipt generated immediately\n\n3. Bank Transfer\n- Transfer to Bank of Ceylon, Account 1234-5678-9012\n- Submit reference number in portal\n- Admin verifies within 24 hours\n- Upload bank slip for faster verification\n\nFee deadline: 21st of each month\n\nContact: 033-2242-2589`,
+
+  'how does suspension work': `Student account suspension at XenEdu:\n\nWhen suspended:\n- You can still LOGIN to your account\n- You can still VIEW your coursework and recordings\n- You CANNOT enroll in new classes\n- You CANNOT make payments\n- Attendance scan is blocked\n\nHow to get unsuspended:\n- Contact the institute directly\n- Admin will review and lift the suspension\n- Once activated, all class access restored\n\nSuspension reason will be shown in your portal.\n\nContact: 033-2242-2589 to resolve suspension`,
+
+  'how do i enroll': `Enrolling at XenEdu is simple!\n\n1. Register online\n2. Admin approval — get login credentials\n3. Login and browse classes\n4. Click Enroll Now\n5. Pay your monthly fee\n\nContact: 033-2242-2589`,
+
+  'what are the class timings': `Class timings vary by subject and teacher.\n\nMorning sessions: 7:00 AM - 12:00 PM\nEvening sessions: 2:00 PM - 7:00 PM\nWeekdays and weekends available\n\nYou can see exact timings for each class in the Browse Classes section after logging in.\n\nWe have 12 halls available:\nHall 1-6, Main Hall, Mini Hall, Lab Room, Library Hall, Computer Lab, Conference Room\n\nContact: 033-2242-2589`,
+
+  'how can i view my results': `Track your progress through the student portal:\n\n- Attendance % per class\n- Session history\n- Payment history and receipts\n- Outstanding fees\n- Enrolled classes\n- Course work, recordings and assignments uploaded by teachers\n\nParents can monitor all of the above through the parent portal.\n\nExam results are provided directly by your teachers through the course work section.\n\nAI Tutor is also available for study help — ask Zenya anything about your subjects!`,
+
+  'ai tutor': `XenEdu has a built-in AI Tutor for students!\n\nWhat it can do:\n- Answer subject questions for your A/L stream\n- Explain concepts in simple terms\n- Help with problem solving\n- Available 24/7 in your student portal\n\nHow to access:\n- Login to student portal\n- Click the AI Tutor button in the top bar\n- Select your subject\n- Start asking questions!\n\nThe AI Tutor is powered by advanced AI and understands your grade and stream.`,
 };
 
 const getGuestReply = (message) => {
   const lower = message.toLowerCase();
   for (const [key, answer] of Object.entries(guestFAQAnswers)) {
-    if (lower.includes(key.split(' ').slice(0,3).join(' '))) return answer;
+    if (lower.includes(key.split(' ').slice(0, 3).join(' '))) return answer;
   }
-  if (lower.includes('class')||lower.includes('subject')) return guestFAQAnswers['what classes are available'];
-  if (lower.includes('fee')||lower.includes('pay')) return guestFAQAnswers['how do i pay my fees'];
-  if (lower.includes('attend')||lower.includes('absent')) return guestFAQAnswers['what is the attendance policy'];
-  if (lower.includes('enroll')||lower.includes('register')) return guestFAQAnswers['how do i enroll in a class'];
-  if (lower.includes('time')||lower.includes('schedule')) return guestFAQAnswers['what are the class timings'];
-  if (lower.includes('result')||lower.includes('mark')) return guestFAQAnswers['how can i view my results'];
-  if (lower.includes('hello')||lower.includes('hi')||lower.includes('hey')) return "Hi there! 👋 I'm Zenya, XenEdu's AI assistant!\n\nAsk me about classes, fees, enrollment and more! 😊";
-  if (lower.includes('contact')||lower.includes('address')) return "📍 XenEdu Mirigama\n📞 033-2242-2589\n📧 xenedu@gmail.com\n\nMon-Fri: 8AM-6PM | Sat: 8AM-4PM";
-  if (lower.includes('price')||lower.includes('cost')||lower.includes('how much')) return "Fees: Rs. 2,000 - Rs. 3,500/month depending on subject.\n\nContact: 📞 033-2242-2589";
-  return "Thanks for your question! 😊\n\nI can help with info about classes, fees, enrollment and schedules.\n\n📞 033-2242-2589\n📧 xenedu@gmail.com";
+  if (lower.includes('class') || lower.includes('subject') || lower.includes('stream')) return guestFAQAnswers['what subjects are available'];
+  if (lower.includes('fee') || lower.includes('pay') || lower.includes('payment')) return guestFAQAnswers['how do i pay my fees'];
+  if (lower.includes('attend') || lower.includes('absent') || lower.includes('barcode')) return guestFAQAnswers['what is the attendance policy'];
+  if (lower.includes('enroll') || lower.includes('register') || lower.includes('join')) return guestFAQAnswers['how do i enroll in a class'];
+  if (lower.includes('suspend') || lower.includes('block') || lower.includes('restrict')) return guestFAQAnswers['how does suspension work'];
+  if (lower.includes('time') || lower.includes('schedule') || lower.includes('hall') || lower.includes('room')) return guestFAQAnswers['what are the class timings'];
+  if (lower.includes('result') || lower.includes('mark') || lower.includes('progress')) return guestFAQAnswers['how can i view my results'];
+  if (lower.includes('ai') || lower.includes('tutor') || lower.includes('study help')) return guestFAQAnswers['ai tutor'];
+  if (lower.includes('card') || lower.includes('cash') || lower.includes('bank') || lower.includes('transfer')) return guestFAQAnswers['what are the payment methods'];
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) return "Hi there! I'm Zenya, XenEdu's AI assistant!\n\nAsk me about classes, fees, enrollment, attendance or anything about XenEdu Mirigama!";
+  if (lower.includes('contact') || lower.includes('address') || lower.includes('location')) return "XenEdu Mirigama\nPhone: 033-2242-2589\nEmail: xenedu@gmail.com\n\nMonday - Friday: 8AM - 6PM\nSaturday: 8AM - 4PM";
+  if (lower.includes('price') || lower.includes('cost') || lower.includes('how much')) return "Monthly fees range from Rs. 2,000 to Rs. 3,500 depending on the subject.\n\nPayment is due by the 21st of each month.\n\nContact: 033-2242-2589 for exact pricing per class.";
+  if (lower.includes('parent') || lower.includes('mother') || lower.includes('father')) return "XenEdu has a dedicated parent portal!\n\nParents can:\n- Monitor attendance in real time\n- View fee payment status\n- See enrolled classes\n- Track academic progress\n\nParent login credentials are provided during student registration.\n\nContact: 033-2242-2589";
+  return "Thanks for your question!\n\nI can help with information about classes, fees, enrollment, attendance and more.\n\nPhone: 033-2242-2589\nEmail: xenedu@gmail.com";
 };
 
 const popoutSequence = [

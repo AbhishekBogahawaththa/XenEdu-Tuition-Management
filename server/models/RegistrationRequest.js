@@ -25,7 +25,7 @@ const registrationRequestSchema = new mongoose.Schema(
     grade: {
       type: String,
       required: [true, 'Grade is required'],
-      enum: ['Grade 12', 'Grade 13'],
+      enum: ['Grade 12', 'Grade 13', 'Grade 13'],
     },
     medium: {
       type: String,

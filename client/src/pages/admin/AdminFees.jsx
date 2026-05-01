@@ -633,10 +633,18 @@ const AdminFees = () => {
   });
 
   const payMutation = useMutation({
-    mutationFn: ({ feeRecordId, method }) => api.post('/fees/pay', { feeRecordId, method }),
-    onSuccess: (res) => { toast.success(`Payment recorded! Receipt: ${res.data.receipt.receiptNumber}`); queryClient.invalidateQueries(['outstanding']); setScannedStudent(null); setSelectedFee(null); setScanValue(''); },
-    onError: err => toast.error(err.response?.data?.message || 'Failed'),
-  });
+  mutationFn: ({ feeRecordId, method }) => api.post('/fees/pay', { feeRecordId, method }),
+  onSuccess: (res) => {
+    toast.success(`Payment recorded! Receipt: ${res.data.receipt.receiptNumber}`);
+    queryClient.invalidateQueries(['outstanding']);
+    setScannedStudent(null);
+    setSelectedFee(null);
+    setScanValue('');
+    // Re-scan to refresh
+    toast('Scan again to see updated status', { icon: '🔄' });
+  },
+  onError: err => toast.error(err.response?.data?.message || 'Failed'),
+});
 
   const handleScan = async () => {
     if (!scanValue.trim()) return;
@@ -718,42 +726,113 @@ const AdminFees = () => {
             </div>
             {scannedStudent && (
               <div className="bg-white rounded-xl shadow-sm p-6 space-y-5">
+                {/* Student header */}
                 <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-                  <div className="w-12 h-12 rounded-full bg-[#0d6b7a] flex items-center justify-center text-white font-bold text-lg">{scannedStudent.student.name?.charAt(0)}</div>
-                  <div><p className="font-bold text-gray-800 text-lg">{scannedStudent.student.name}</p><p className="text-gray-400 text-sm">{scannedStudent.student.admissionNumber} • {scannedStudent.student.grade}</p></div>
-                  <div className="ml-auto text-right"><p className="text-sm text-gray-500">Outstanding</p><p className="text-xl font-bold text-red-600">Rs. {scannedStudent.outstandingFees.total.toLocaleString()}</p></div>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-700 mb-3">Select class to pay:</h4>
-                  <div className="space-y-3">
-                    {scannedStudent.enrolledClasses.map(cls => (
-                      <div key={cls.classId} onClick={() => !cls.feePaidThisMonth && setSelectedFee(cls)}
-                        className={`border rounded-xl p-4 cursor-pointer transition ${selectedFee?.classId === cls.classId ? 'border-[#0d6b7a] bg-[#0d6b7a]/5' : cls.feePaidThisMonth ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60' : 'border-gray-200 hover:border-[#0d6b7a] hover:bg-gray-50'}`}>
-                        <div className="flex justify-between items-center">
-                          <div><p className="font-semibold text-gray-800">{cls.name}</p><p className="text-xs text-gray-400 mt-0.5">{cls.subject} • {cls.hall} • {cls.schedule?.dayOfWeek}</p></div>
-                          <div className="text-right">
-                            <p className="font-bold text-gray-800">Rs. {cls.monthlyFee?.toLocaleString()}</p>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cls.feePaidThisMonth ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{cls.feePaidThisMonth ? 'Paid' : 'Unpaid'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="w-12 h-12 rounded-full bg-[#0d6b7a] flex items-center justify-center text-white font-bold text-lg">
+                    {scannedStudent.student.name?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800 text-lg">{scannedStudent.student.name}</p>
+                    <p className="text-gray-400 text-sm">{scannedStudent.student.admissionNumber} • {scannedStudent.student.grade}</p>
+                    {scannedStudent.student.status === 'suspended' && (
+                      <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">🚫 Suspended</span>
+                    )}
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-sm text-gray-500">Total Outstanding</p>
+                    <p className="text-xl font-bold text-red-600">
+                      Rs. {scannedStudent.outstandingFees.total.toLocaleString()}
+                    </p>
+                    {scannedStudent.outstandingFees.records.length > 0 && (
+                      <p className="text-xs text-orange-500 font-semibold">
+                        {scannedStudent.outstandingFees.records.length} unpaid record{scannedStudent.outstandingFees.records.length > 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {/* ── Outstanding fee records — pay directly ── */}
+                {scannedStudent.outstandingFees.records.length > 0 ? (
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">
+                      Select fee to pay:
+                    </h4>
+                    <div className="space-y-3">
+                      {scannedStudent.outstandingFees.records.map((fee, i) => (
+                        <div key={i}
+                          onClick={() => setSelectedFee({
+                            classId: fee.feeRecordId,
+                            name: fee.class,
+                            subject: fee.subject,
+                            monthlyFee: fee.amount,
+                            feeRecordId: fee.feeRecordId,
+                            month: fee.month,
+                          })}
+                          className={`border rounded-xl p-4 cursor-pointer transition ${
+                            selectedFee?.feeRecordId === fee.feeRecordId
+                              ? 'border-[#0d6b7a] bg-[#0d6b7a]/5'
+                              : 'border-gray-200 hover:border-[#0d6b7a] hover:bg-gray-50'
+                          }`}>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-semibold text-gray-800">{fee.class}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{fee.subject}</p>
+                              <p className="text-xs text-orange-500 font-semibold mt-1">
+                                📅 Month: {fee.month}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-800">Rs. {fee.amount?.toLocaleString()}</p>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                fee.status === 'overdue'
+                                  ? 'bg-orange-100 text-orange-600'
+                                  : 'bg-red-100 text-red-600'
+                              }`}>
+                                {fee.status === 'overdue' ? 'Overdue' : 'Unpaid'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                    <p className="text-2xl mb-2">✅</p>
+                    <p className="font-semibold text-green-700">All fees paid!</p>
+                    <p className="text-sm text-green-500 mt-1">No outstanding fees for this student.</p>
+                  </div>
+                )}
+
+                {/* Payment method + confirm */}
                 {selectedFee && (
                   <div className="bg-[#0d6b7a]/5 border border-[#0d6b7a]/20 rounded-xl p-4 space-y-3">
-                    <p className="font-semibold text-gray-800">Paying for: <span className="text-[#0d6b7a]">{selectedFee.name}</span></p>
+                    <p className="font-semibold text-gray-800">
+                      Paying: <span className="text-[#0d6b7a]">{selectedFee.name}</span>
+                      <span className="text-gray-400 text-sm ml-2">— {selectedFee.month}</span>
+                    </p>
                     <div>
                       <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Payment Method</label>
                       <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className={inp}>
                         {PAYMENT_METHODS.map(m => <option key={m} value={m} className="capitalize">{m}</option>)}
                       </select>
                     </div>
-                    <button onClick={() => payMutation.mutate({ feeRecordId: selectedFee.feeRecordId, method: paymentMethod })} disabled={payMutation.isPending || !selectedFee.feeRecordId}
+                    <button
+                      onClick={() => payMutation.mutate({
+                        feeRecordId: selectedFee.feeRecordId,
+                        method: paymentMethod,
+                      })}
+                      disabled={payMutation.isPending || !selectedFee.feeRecordId}
                       className="w-full bg-[#0d6b7a] text-white py-3 rounded-xl font-bold hover:bg-[#0a505d] transition disabled:opacity-50">
-                      {payMutation.isPending ? 'Processing...' : `Confirm Payment — Rs. ${selectedFee.monthlyFee?.toLocaleString()}`}
+                      {payMutation.isPending
+                        ? 'Processing...'
+                        : `✓ Confirm Payment — Rs. ${selectedFee.monthlyFee?.toLocaleString()}`}
                     </button>
-                    {!selectedFee.feeRecordId && <p className="text-xs text-orange-600 flex items-center gap-1"><AlertCircle size={12} /> Fee record not generated yet. Generate fees first.</p>}
+                    {!selectedFee.feeRecordId && (
+                      <p className="text-xs text-orange-600 flex items-center gap-1">
+                        <AlertCircle size={12} /> Fee record not generated yet.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -766,10 +845,38 @@ const AdminFees = () => {
         {activeTab === 'generate' && (
           <div className="bg-white rounded-xl shadow-sm p-6 max-w-md">
             <h3 className="text-base font-bold text-gray-800 mb-2">Generate Monthly Fees</h3>
-            <p className="text-sm text-gray-400 mb-5">Create fee records for all enrolled students for the selected month.</p>
+            <p className="text-sm text-gray-400 mb-2">
+              Create fee records for all enrolled students for the selected month.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
+              <p className="text-xs text-blue-700">
+                ℹ️ Fees auto-generate on the 1st of each month. Use this only if auto-generation missed any students.
+                <strong> Cannot generate future months.</strong>
+              </p>
+            </div>
             <div className="space-y-4">
-              <div><label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Select Month</label><input type="month" value={generateMonth} onChange={e => setGenerateMonth(e.target.value)} className={inp} /></div>
-              <button onClick={() => generateMutation.mutate(generateMonth)} disabled={!generateMonth || generateMutation.isPending}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">
+                  Select Month (current or past only)
+                </label>
+                <input
+                  type="month"
+                  value={generateMonth}
+                  onChange={e => setGenerateMonth(e.target.value)}
+                  max={new Date().toISOString().slice(0, 7)} // ← block future!
+                  className={inp}
+                />
+                {generateMonth > new Date().toISOString().slice(0, 7) && (
+                  <p className="text-xs text-red-500 mt-1">⚠️ Cannot generate fees for future months</p>
+                )}
+              </div>
+              <button
+                onClick={() => generateMutation.mutate(generateMonth)}
+                disabled={
+                  !generateMonth ||
+                  generateMutation.isPending ||
+                  generateMonth > new Date().toISOString().slice(0, 7) // block future
+                }
                 className="w-full bg-[#0d6b7a] text-white py-3 rounded-xl font-bold hover:bg-[#0a505d] transition disabled:opacity-50">
                 {generateMutation.isPending ? 'Generating...' : 'Generate Fees'}
               </button>

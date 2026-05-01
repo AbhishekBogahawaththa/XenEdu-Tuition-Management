@@ -37,6 +37,24 @@ setTimeout(() => {
   }
 }, 3000);
 
+// ── One-time cleanup: delete wrongly generated future fees ────────
+setTimeout(async () => {
+  try {
+    const FeeRecord = require('./models/FeeRecord');
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const result = await FeeRecord.deleteMany({
+      month: { $gt: currentMonth },
+    });
+    if (result.deletedCount > 0) {
+      console.log(`🧹 Cleaned up ${result.deletedCount} future fee records`);
+    } else {
+      console.log('✅ No future fee records found to clean up');
+    }
+  } catch (err) {
+    console.error('Cleanup error:', err.message);
+  }
+}, 5000);
+
 // ── CORS ──────────────────────────────────────────────────────────
 app.use(cors({
   origin: function(origin, callback) {

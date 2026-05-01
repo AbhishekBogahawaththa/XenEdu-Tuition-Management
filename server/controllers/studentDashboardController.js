@@ -4,7 +4,7 @@ const Payment = require('../models/Payment');
 const Attendance = require('../models/Attendance');
 const ClassSession = require('../models/ClassSession');
 
-// @GET /api/student/dashboard  ← student only
+// @GET /api/dashboard/student ← student only
 const getStudentDashboard = async (req, res) => {
   try {
     const student = await Student.findOne({ userId: req.user._id })
@@ -21,20 +21,64 @@ const getStudentDashboard = async (req, res) => {
         populate: { path: 'userId', select: 'name email' }
       });
 
-    if (!student) {
-      return res.status(404).json({ message: 'Student profile not found' });
+    if (!student) return res.status(404).json({ message: 'Student profile not found' });
+
+    const now = new Date();
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    // ── Auto mark overdue (current + past only) ───────────────
+    await FeeRecord.updateMany(
+      {
+        studentId: student._id,
+        status: 'unpaid',
+        dueDate: { $lt: now },
+        month: { $lte: currentMonth },
+      },
+      { status: 'overdue' }
+    );
+
+    // ── Reset future fees wrongly marked overdue ──────────────
+    await FeeRecord.updateMany(
+      { studentId: student._id, status: 'overdue', month: { $gt: currentMonth } },
+      { status: 'unpaid' }
+    );
+
+    // ── Auto-create missing fee records for enrolled classes ──
+    for (const cls of student.enrolledClasses) {
+      const existing = await FeeRecord.findOne({
+        studentId: student._id,
+        classId: cls._id,
+        month: currentMonth,
+      });
+      if (!existing) {
+        const dueDate = new Date(now.getFullYear(), now.getMonth(), 21);
+        await FeeRecord.create({
+          studentId: student._id,
+          classId: cls._id,
+          amount: cls.monthlyFee,
+          month: currentMonth,
+          dueDate,
+          status: 'unpaid',
+        });
+        console.log(`💰 Dashboard auto-created fee: ${student.admissionNumber} → ${cls.name}`);
+      }
     }
 
-    // Fee summary
-    const fees = await FeeRecord.find({ studentId: student._id })
-      .populate('classId', 'name subject');
+    // ── Only enrolled classes + current/past months ───────────
+    const enrolledClassIds = student.enrolledClasses.map(c => c._id.toString());
+
+    const fees = await FeeRecord.find({
+      studentId: student._id,
+      classId: { $in: enrolledClassIds }, // only enrolled classes
+      month: { $lte: currentMonth },       // never show future
+    }).populate('classId', 'name subject');
 
     const unpaidFees = fees.filter(f =>
       f.status === 'unpaid' || f.status === 'overdue'
     );
     const totalOutstanding = unpaidFees.reduce((sum, f) => sum + f.amount, 0);
 
-    // Recent payments
+    // ── Recent payments ───────────────────────────────────────
     const recentPayments = await Payment.find({
       studentId: student._id,
       status: 'completed',
@@ -43,14 +87,10 @@ const getStudentDashboard = async (req, res) => {
       .sort({ paidAt: -1 })
       .limit(5);
 
-    // Attendance per class
+    // ── Attendance per class ──────────────────────────────────
     const attendanceSummary = await Promise.all(
       student.enrolledClasses.map(async (cls) => {
-        const sessions = await ClassSession.find({
-          classId: cls._id,
-          status: 'completed',
-        });
-
+        const sessions = await ClassSession.find({ classId: cls._id, status: 'completed' });
         const sessionIds = sessions.map(s => s._id);
         const totalSessions = sessionIds.length;
 
@@ -90,6 +130,8 @@ const getStudentDashboard = async (req, res) => {
         stream: student.stream,
         medium: student.medium,
         status: student.status,
+        suspendReason: student.suspendReason || null,
+        suspendedAt: student.suspendedAt || null,
       },
       barcode: student.admissionNumber,
       enrolledClasses: attendanceSummary,
@@ -102,6 +144,7 @@ const getStudentDashboard = async (req, res) => {
           subject: f.classId?.subject,
           amount: f.amount,
           month: f.month,
+          status: f.status,
           dueDate: f.dueDate,
         })),
       },

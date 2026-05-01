@@ -1,13 +1,14 @@
 const Student = require('../models/Student');
 const Class = require('../models/Class');
+const FeeRecord = require('../models/FeeRecord');
 const Attendance = require('../models/Attendance');
+const ClassSession = require('../models/ClassSession');
 
-// @GET /api/scan/:admissionNumber  ← teacher, cashier, admin
+// @GET /api/scan/:admissionNumber
 const scanStudent = async (req, res) => {
   try {
     const { admissionNumber } = req.params;
 
-    // Find student by admission number
     const student = await Student.findOne({ admissionNumber })
       .populate('userId', 'name email isActive')
       .populate({
@@ -26,48 +27,75 @@ const scanStudent = async (req, res) => {
       return res.status(404).json({ message: `No student found with admission number ${admissionNumber}` });
     }
 
-    if (!student.userId.isActive) {
-      return res.status(403).json({ message: 'Student account is deactivated' });
+    if (!student.userId) {
+      return res.status(403).json({ message: 'Student account not found' });
     }
 
-    if (student.status === 'suspended') {
-      return res.status(403).json({
-        message: 'Student is suspended',
-        student: {
-          name: student.userId.name,
-          admissionNumber: student.admissionNumber,
-          status: student.status,
-        }
-      });
-    }
+    const now = new Date();
+    const currentMonth = new Date().toISOString().slice(0, 7);
 
-    // Build class summary with fee status
-    const currentMonth = new Date().toISOString().slice(0, 7); // "2025-08"
+    // ── Auto-mark overdue (current + past only) ───────────────
+    await FeeRecord.updateMany(
+      {
+        studentId: student._id,
+        status: 'unpaid',
+        dueDate: { $lt: now },
+        month: { $lte: currentMonth },
+      },
+      { status: 'overdue' }
+    );
 
+    // ── Reset future fees wrongly marked overdue ──────────────
+    await FeeRecord.updateMany(
+      { studentId: student._id, status: 'overdue', month: { $gt: currentMonth } },
+      { status: 'unpaid' }
+    );
+
+    // ── Build class summary ───────────────────────────────────
     const classSummary = await Promise.all(
       student.enrolledClasses.map(async (cls) => {
-        // Check if fee paid this month
-        const FeeRecord = require('../models/FeeRecord');
-        const feeRecord = await FeeRecord.findOne({
+
+        // Check current month fee record
+        let currentFeeRecord = await FeeRecord.findOne({
           studentId: student._id,
           classId: cls._id,
           month: currentMonth,
         });
 
-        // Get attendance % for this class
-        const Attendance = require('../models/Attendance');
-        const ClassSession = require('../models/ClassSession');
+        // ── Auto-create if missing (new enrollment) ───────────
+        if (!currentFeeRecord) {
+          const dueDate = new Date(now.getFullYear(), now.getMonth(), 21);
+          currentFeeRecord = await FeeRecord.create({
+            studentId: student._id,
+            classId: cls._id,
+            amount: cls.monthlyFee,
+            month: currentMonth,
+            dueDate,
+            status: 'unpaid',
+          });
+          console.log(`💰 Auto-created fee record: ${student.admissionNumber} → ${cls.name} (${currentMonth})`);
+        }
 
+        // All unpaid/overdue for this class (current + past only)
+        const allUnpaidFees = await FeeRecord.find({
+          studentId: student._id,
+          classId: cls._id,
+          status: { $in: ['unpaid', 'overdue'] },
+          month: { $lte: currentMonth },
+        }).sort({ month: 1 });
+
+        // Pay oldest first
+        const feeToPayRecord = allUnpaidFees[0] || currentFeeRecord;
+
+        // Attendance
         const sessions = await ClassSession.find({ classId: cls._id, status: 'completed' });
         const sessionIds = sessions.map(s => s._id);
-
         const totalSessions = sessionIds.length;
         const presentCount = await Attendance.countDocuments({
           studentId: student._id,
           sessionId: { $in: sessionIds },
           status: { $in: ['present', 'late'] },
         });
-
         const attendancePercentage = totalSessions > 0
           ? Math.round((presentCount / totalSessions) * 100)
           : null;
@@ -81,21 +109,24 @@ const scanStudent = async (req, res) => {
           schedule: cls.schedule,
           monthlyFee: cls.monthlyFee,
           teacher: cls.teacherId?.userId?.name || 'Not assigned',
-          feeStatus: feeRecord ? feeRecord.status : 'not_generated',
-          feePaidThisMonth: feeRecord?.status === 'paid',
-          feeRecordId: feeRecord?._id || null,
+          feeStatus: currentFeeRecord.status,
+          feePaidThisMonth: currentFeeRecord.status === 'paid',
+          feeRecordId: feeToPayRecord?._id || null,
+          totalUnpaidMonths: allUnpaidFees.length,
+          totalOutstandingAmount: allUnpaidFees.reduce((sum, f) => sum + f.amount, 0),
+          oldestUnpaidMonth: allUnpaidFees[0]?.month || null,
           attendancePercentage: attendancePercentage !== null ? `${attendancePercentage}%` : 'No sessions yet',
           attendanceRisk: attendancePercentage !== null && attendancePercentage < 80,
         };
       })
     );
 
-    // Outstanding fees across all classes
-    const FeeRecord = require('../models/FeeRecord');
+    // ── Outstanding fees (current + past only) ────────────────
     const outstandingFees = await FeeRecord.find({
       studentId: student._id,
-      status: 'unpaid',
-    }).populate('classId', 'name subject');
+      status: { $in: ['unpaid', 'overdue'] },
+      month: { $lte: currentMonth },
+    }).populate('classId', 'name subject').sort({ month: 1 });
 
     const totalOutstanding = outstandingFees.reduce((sum, f) => sum + f.amount, 0);
 
@@ -110,6 +141,7 @@ const scanStudent = async (req, res) => {
         medium: student.medium,
         stream: student.stream,
         status: student.status,
+        suspendReason: student.suspendReason || null,
         parent: {
           name: student.parentId?.userId?.name || null,
           email: student.parentId?.userId?.email || null,
@@ -125,6 +157,7 @@ const scanStudent = async (req, res) => {
           subject: f.classId?.subject,
           amount: f.amount,
           month: f.month,
+          status: f.status,
           dueDate: f.dueDate,
         }))
       },
