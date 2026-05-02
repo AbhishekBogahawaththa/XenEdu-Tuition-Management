@@ -9,7 +9,7 @@ const studentSchema = new mongoose.Schema(
     grade: { type: String, required: [true, 'Grade is required'], enum: ['Grade 12', 'Grade 13'] },
     medium: { type: String, required: [true, 'Medium is required'], enum: ['Sinhala', 'Tamil', 'English'] },
     stream: { type: String, enum: ['Physical Science', 'Biological Science', 'Commerce', 'Arts', 'Technology'] },
-    status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
+    status: { type: String, enum: ['active', 'inactive', 'suspended', 'pending'], default: 'active' },
 
     // ── Suspension info ───────────────────────────────────────────
     suspendReason: { type: String, default: null },
@@ -22,8 +22,8 @@ const studentSchema = new mongoose.Schema(
 );
 
 studentSchema.pre('save', async function (next) {
-  if (!this.admissionNumber) {
-    const count = await mongoose.model('Student').countDocuments();
+  if (!this.admissionNumber && this.status !== 'pending') {
+    const count = await mongoose.model('Student').countDocuments({ status: { $ne: 'pending' } });
     this.admissionNumber = `XE${String(count + 1).padStart(4, '0')}`;
   }
   next();

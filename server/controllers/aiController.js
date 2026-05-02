@@ -242,4 +242,36 @@ Always be encouraging and patient. Make learning enjoyable!`;
   }
 };
 
-module.exports = { chat, learn };
+
+// @POST /api/ai/faq - PUBLIC (no auth required)
+const faqChat = async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body;
+    if (!message) return res.status(400).json({ message: 'Message is required' });
+
+    const systemPrompt = 'You are Zenya, the helpful assistant for XenEdu, a top A/L tuition institute in Mirigama, Sri Lanka. Key facts: Offers A/L classes for Physical Science, Biological Science, Commerce and Arts streams. Students get login credentials from admin when they enroll. Fees paid via cash, card or bank transfer. Minimum 80% attendance required. Contact admin: 033-2242-2589. Location: Mirigama, Sri Lanka. Be friendly, helpful and concise. Answer in 2-3 sentences max.';
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.slice(-6).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    const completion = await groq.chat.completions.create({
+      messages,
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 300,
+      temperature: 0.7,
+    });
+
+    const reply = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+    res.status(200).json({ reply });
+  } catch (error) {
+    handleAIError(error, res, 'faq');
+  }
+};
+
+module.exports = { chat, learn, faqChat };

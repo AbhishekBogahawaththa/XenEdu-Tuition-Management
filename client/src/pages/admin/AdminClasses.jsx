@@ -16,11 +16,11 @@ const SessionPanel = ({ cls }) => {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [showAddForm, setShowAddForm] = useState(false);
   const [sessionForm, setSessionForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    startTime: cls.schedule?.startTime || '09:00',
-    durationMins: cls.schedule?.durationMins || 90,
-    notes: '',
-  });
+  date: new Date().toISOString().split('T')[0],
+  startTime: cls.schedule?.startTime || '09:00',
+  endTime: cls.schedule?.endTime || '11:00',
+  notes: '',
+});
 
   const { data: sessionsData, isLoading } = useQuery({
     queryKey: ['sessions', cls._id, month],
@@ -36,7 +36,7 @@ const SessionPanel = ({ cls }) => {
       setSessionForm({
         date: new Date().toISOString().split('T')[0],
         startTime: cls.schedule?.startTime || '09:00',
-        durationMins: cls.schedule?.durationMins || 90,
+        endTime: cls.schedule?.endTime || '11:00',
         notes: '',
       });
     },
@@ -89,15 +89,18 @@ const SessionPanel = ({ cls }) => {
 
   const handleCreateSession = (e) => {
     e.preventDefault();
-    if (!sessionForm.date || !sessionForm.startTime) {
-      toast.error('Please fill date and start time');
+    if (!sessionForm.date || !sessionForm.startTime || !sessionForm.endTime) {
+    toast.error('Please fill date, start time and end time');
       return;
     }
+    const [sh, sm] = sessionForm.startTime.split(':').map(Number);
+    const [eh, em] = sessionForm.endTime.split(':').map(Number);
+    const durationMins = (eh * 60 + em) - (sh * 60 + sm);
     createSessionMutation.mutate({
       classId: cls._id,
       date: sessionForm.date,
       startTime: sessionForm.startTime,
-      durationMins: parseInt(sessionForm.durationMins) || 90,
+      durationMins: durationMins > 0 ? durationMins : 90,
       notes: sessionForm.notes || `Manual session — ${new Date(sessionForm.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`,
     });
   };
@@ -166,11 +169,11 @@ const SessionPanel = ({ cls }) => {
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]" required />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Duration (mins)</label>
-              <input type="number" value={sessionForm.durationMins}
-                onChange={e => setSessionForm({ ...sessionForm, durationMins: e.target.value })}
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">End Time *</label>
+              <input type="time" value={sessionForm.endTime}
+                onChange={e => setSessionForm({ ...sessionForm, endTime: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#0d6b7a]"
-                min="30" max="300" />
+                required />
             </div>
             <div className="col-span-4">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notes (Optional)</label>
@@ -292,6 +295,10 @@ const AdminClasses = () => {
   const [expandedClass, setExpandedClass] = useState(null);
   const [expandedTab, setExpandedTab] = useState('students');
 
+  // ── Suspend modal state ───────────────────────────────────────
+  const [suspendModal, setSuspendModal] = useState(null); // { student }
+  const [suspendReason, setSuspendReason] = useState('');
+
   // ── Form state ────────────────────────────────────────────────
   const [form, setForm] = useState({
     name: '', subject: '', grade: '', medium: '',
@@ -357,14 +364,14 @@ const AdminClasses = () => {
   });
 
   const suspendMutation = useMutation({
-      mutationFn: ({ studentId, action, reason }) =>
-        api.patch(`/classes/students/${studentId}/suspend`, { action, reason }),
-      onSuccess: (res) => {
-        toast.success(res.data.message);
-        queryClient.invalidateQueries(['class-detail', expandedClass]);
-      },
-      onError: err => toast.error(err.response?.data?.message || 'Failed'),
-    });
+    mutationFn: ({ studentId, action, reason }) =>
+      api.patch(`/classes/students/${studentId}/suspend`, { action, reason }),
+    onSuccess: (res) => {
+      toast.success(res.data.message);
+      queryClient.invalidateQueries(['class-detail', expandedClass]);
+    },
+    onError: err => toast.error(err.response?.data?.message || 'Failed'),
+  });
 
   const calcDuration = (start, end) => {
     if (!start || !end) return null;
@@ -383,31 +390,17 @@ const AdminClasses = () => {
     const duration = calcDuration(form.startTime, form.endTime);
     if (!duration) { toast.error('End time must be after start time'); return; }
     createMutation.mutate({
-      name: form.name,
-      subject: form.subject,
-      grade: form.grade,
-      medium: form.medium,
-      hall: form.hall,
-      teacherId: form.teacherId,
-      monthlyFee: parseInt(form.monthlyFee),
-      maxCapacity: parseInt(form.maxCapacity),
+      name: form.name, subject: form.subject, grade: form.grade,
+      medium: form.medium, hall: form.hall, teacherId: form.teacherId,
+      monthlyFee: parseInt(form.monthlyFee), maxCapacity: parseInt(form.maxCapacity),
       startDate: form.startDate,
-      schedule: {
-        dayOfWeek: form.dayOfWeek,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        durationMins: duration.mins,
-      },
+      schedule: { dayOfWeek: form.dayOfWeek, startTime: form.startTime, endTime: form.endTime, durationMins: duration.mins },
     });
   };
 
   const handleExpandClass = (classId) => {
-    if (expandedClass === classId) {
-      setExpandedClass(null);
-    } else {
-      setExpandedClass(classId);
-      setExpandedTab('students');
-    }
+    if (expandedClass === classId) { setExpandedClass(null); }
+    else { setExpandedClass(classId); setExpandedTab('students'); }
   };
 
   const filtered = classes?.classes?.filter(cls =>
@@ -419,23 +412,71 @@ const AdminClasses = () => {
   const labelClass = "block text-xs font-semibold text-gray-500 uppercase mb-1";
 
   const hallColors = {
-    'Hall 1': 'bg-blue-100 text-blue-700',
-    'Hall 2': 'bg-purple-100 text-purple-700',
-    'Hall 3': 'bg-orange-100 text-orange-700',
-    'Hall 4': 'bg-green-100 text-green-700',
-    'Hall 5': 'bg-red-100 text-red-700',
-    'Hall 6': 'bg-yellow-100 text-yellow-700',
-    'Main Hall': 'bg-indigo-100 text-indigo-700',
-    'Mini Hall': 'bg-pink-100 text-pink-700',
-    'Lab Room': 'bg-cyan-100 text-cyan-700',
-    'Library Hall': 'bg-amber-100 text-amber-700',
-    'Computer Lab': 'bg-teal-100 text-teal-700',
-    'Conference Room': 'bg-violet-100 text-violet-700',
+    'Hall 1': 'bg-blue-100 text-blue-700', 'Hall 2': 'bg-purple-100 text-purple-700',
+    'Hall 3': 'bg-orange-100 text-orange-700', 'Hall 4': 'bg-green-100 text-green-700',
+    'Hall 5': 'bg-red-100 text-red-700', 'Hall 6': 'bg-yellow-100 text-yellow-700',
+    'Main Hall': 'bg-indigo-100 text-indigo-700', 'Mini Hall': 'bg-pink-100 text-pink-700',
+    'Lab Room': 'bg-cyan-100 text-cyan-700', 'Library Hall': 'bg-amber-100 text-amber-700',
+    'Computer Lab': 'bg-teal-100 text-teal-700', 'Conference Room': 'bg-violet-100 text-violet-700',
   };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
+
+        {/* ── Suspend Modal ── */}
+        {suspendModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-2xl flex-shrink-0">🚫</div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg">Suspend Student</h3>
+                  <p className="text-sm text-gray-400">{suspendModal.userId?.name} • {suspendModal.admissionNumber}</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                  Reason for Suspension *
+                </label>
+                <textarea
+                  value={suspendReason}
+                  onChange={e => setSuspendReason(e.target.value)}
+                  placeholder="e.g. Unpaid fees for 3 months, Misconduct, Violation of rules..."
+                  rows={3}
+                  autoFocus
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-red-400 resize-none"
+                />
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                <p className="text-xs text-red-600 leading-relaxed">
+                  ⚠️ Suspending will block this student from: attending classes, making payments, and enrolling in new classes. The reason will be visible to the student.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setSuspendModal(null); setSuspendReason(''); }}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 font-semibold text-sm hover:bg-gray-50 transition">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!suspendReason.trim()) { toast.error('Please enter a suspension reason'); return; }
+                    suspendMutation.mutate({ studentId: suspendModal._id, action: 'suspend', reason: suspendReason.trim() });
+                    setSuspendModal(null);
+                    setSuspendReason('');
+                  }}
+                  disabled={suspendMutation.isPending}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition disabled:opacity-50">
+                  🚫 Confirm Suspend
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -477,35 +518,26 @@ const AdminClasses = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Class Name */}
                   <div className="col-span-2">
                     <label className={labelClass}>Class Name *</label>
                     <input type="text" placeholder="e.g. Physics Grade 13 - Sinhala 2026"
                       value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                       className={inputClass} required />
                   </div>
-
-                  {/* Subject */}
                   <div>
                     <label className={labelClass}>Subject *</label>
-                    <select value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
-                      className={inputClass} required>
+                    <select value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className={inputClass} required>
                       <option value="">Select subject</option>
                       {SUBJECTS.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
-
-                  {/* Grade */}
                   <div>
                     <label className={labelClass}>Grade *</label>
-                    <select value={form.grade} onChange={e => setForm({ ...form, grade: e.target.value })}
-                      className={inputClass} required>
+                    <select value={form.grade} onChange={e => setForm({ ...form, grade: e.target.value })} className={inputClass} required>
                       <option value="">Select grade</option>
                       {GRADES.map(g => <option key={g}>{g}</option>)}
                     </select>
                   </div>
-
-                  {/* Medium */}
                   <div>
                     <label className={labelClass}>Medium</label>
                     <select value={form.medium} onChange={e => setForm({ ...form, medium: e.target.value })} className={inputClass}>
@@ -513,8 +545,6 @@ const AdminClasses = () => {
                       {MEDIUMS.map(m => <option key={m}>{m}</option>)}
                     </select>
                   </div>
-
-                  {/* Hall */}
                   <div>
                     <label className={labelClass}>Hall</label>
                     <select value={form.hall} onChange={e => setForm({ ...form, hall: e.target.value })} className={inputClass}>
@@ -522,44 +552,32 @@ const AdminClasses = () => {
                       {HALLS.map(h => <option key={h}>{h}</option>)}
                     </select>
                   </div>
-
-                  {/* Teacher — REQUIRED */}
                   <div className="col-span-2">
                     <label className={labelClass}>Teacher *</label>
-                    <select value={form.teacherId} onChange={e => setForm({ ...form, teacherId: e.target.value })}
-                      className={inputClass} required>
+                    <select value={form.teacherId} onChange={e => setForm({ ...form, teacherId: e.target.value })} className={inputClass} required>
                       <option value="">Select teacher *</option>
                       {teachers?.teachers?.map(t => (
-                        <option key={t._id} value={t._id}>
-                          {t.userId?.name} — {t.subjectExpertise?.join(', ')}
-                        </option>
+                        <option key={t._id} value={t._id}>{t.userId?.name} — {t.subjectExpertise?.join(', ')}</option>
                       ))}
                     </select>
                   </div>
-
-                  {/* Weekly Schedule */}
                   <div className="col-span-2">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">📅 Weekly Schedule</p>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className={labelClass}>Day *</label>
-                        <select value={form.dayOfWeek} onChange={e => setForm({ ...form, dayOfWeek: e.target.value })}
-                          className={inputClass} required>
+                        <select value={form.dayOfWeek} onChange={e => setForm({ ...form, dayOfWeek: e.target.value })} className={inputClass} required>
                           <option value="">Select day</option>
                           {DAYS.map(d => <option key={d}>{d}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className={labelClass}>Start Time *</label>
-                        <input type="time" value={form.startTime}
-                          onChange={e => setForm({ ...form, startTime: e.target.value })}
-                          className={inputClass} required />
+                        <input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
                       </div>
                       <div>
                         <label className={labelClass}>End Time *</label>
-                        <input type="time" value={form.endTime}
-                          onChange={e => setForm({ ...form, endTime: e.target.value })}
-                          className={inputClass} required />
+                        <input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
                       </div>
                     </div>
                     {form.startTime && form.endTime && (() => {
@@ -571,44 +589,28 @@ const AdminClasses = () => {
                       );
                       return (
                         <div className="mt-2 bg-[#0d6b7a]/5 border border-[#0d6b7a]/20 rounded-lg px-4 py-2.5">
-                          <span className="text-[#0d6b7a] text-sm font-bold">
-                            {form.startTime} — {form.endTime} ({d.label} · {d.mins} mins)
-                          </span>
+                          <span className="text-[#0d6b7a] text-sm font-bold">{form.startTime} — {form.endTime} ({d.label} · {d.mins} mins)</span>
                         </div>
                       );
                     })()}
                   </div>
-
-                  {/* Start Date */}
                   <div>
                     <label className={labelClass}>Start Date *</label>
-                    <input type="date" value={form.startDate}
-                      onChange={e => setForm({ ...form, startDate: e.target.value })}
-                      className={inputClass} required />
+                    <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className={inputClass} required />
                   </div>
-
-                  {/* Max Capacity */}
                   <div>
                     <label className={labelClass}>Max Capacity</label>
-                    <input type="number" value={form.maxCapacity}
-                      onChange={e => setForm({ ...form, maxCapacity: e.target.value })}
-                      className={inputClass} min="1" />
+                    <input type="number" value={form.maxCapacity} onChange={e => setForm({ ...form, maxCapacity: e.target.value })} className={inputClass} min="1" />
                   </div>
-
-                  {/* Monthly Fee */}
                   <div>
                     <label className={labelClass}>Monthly Fee (Rs.)</label>
-                    <input type="number" value={form.monthlyFee}
-                      onChange={e => setForm({ ...form, monthlyFee: e.target.value })}
-                      className={inputClass} min="0" />
+                    <input type="number" value={form.monthlyFee} onChange={e => setForm({ ...form, monthlyFee: e.target.value })} className={inputClass} min="0" />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setShowForm(false); resetForm(); }}
-                    className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition">
-                    Cancel
-                  </button>
+                    className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition">Cancel</button>
                   <button type="submit" disabled={createMutation.isPending}
                     className="flex-1 py-3 bg-[#0d6b7a] text-white rounded-xl font-bold hover:bg-[#0a505d] transition disabled:opacity-50">
                     {createMutation.isPending ? 'Creating...' : '✓ Create Class'}
@@ -640,16 +642,13 @@ const AdminClasses = () => {
                         {cls.hall && (
                           <>
                             <span className="text-gray-300">•</span>
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${hallColors[cls.hall] || 'bg-gray-100 text-gray-600'}`}>
-                              {cls.hall}
-                            </span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${hallColors[cls.hall] || 'bg-gray-100 text-gray-600'}`}>{cls.hall}</span>
                           </>
                         )}
                       </div>
                       <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                         <span className="flex items-center gap-1 text-xs text-gray-500">
-                          <Clock size={11} />
-                          {cls.schedule?.dayOfWeek} {cls.schedule?.startTime}
+                          <Clock size={11} /> {cls.schedule?.dayOfWeek} {cls.schedule?.startTime}
                           {cls.schedule?.endTime ? ` — ${cls.schedule?.endTime}` : ''}
                         </span>
                         <span className="text-gray-300">•</span>
@@ -659,15 +658,12 @@ const AdminClasses = () => {
                         <span className="text-gray-300">•</span>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                           cls.availableSlots === 0 ? 'bg-red-100 text-red-600' :
-                          cls.availableSlots <= 10 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-green-100 text-green-700'
+                          cls.availableSlots <= 10 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
                         }`}>
                           {cls.availableSlots === 0 ? '🔴 Full' : `${cls.availableSlots} slots left`}
                         </span>
                         <span className="text-gray-300">•</span>
-                        <span className="text-xs font-bold text-[#0d6b7a]">
-                          Rs. {cls.monthlyFee?.toLocaleString()}/month
-                        </span>
+                        <span className="text-xs font-bold text-[#0d6b7a]">Rs. {cls.monthlyFee?.toLocaleString()}/month</span>
                       </div>
                     </div>
                   </div>
@@ -675,31 +671,23 @@ const AdminClasses = () => {
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <div className="text-right hidden md:block">
                       <p className="text-xs text-gray-400">Teacher</p>
-                      <p className="text-sm font-semibold text-gray-700">
-                        {cls.teacherId?.userId?.name || 'Not assigned'}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-700">{cls.teacherId?.userId?.name || 'Not assigned'}</p>
                     </div>
                     <button
                       onClick={() => { handleExpandClass(cls._id); setExpandedTab('students'); }}
                       className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${
-                        expandedClass === cls._id && expandedTab === 'students'
-                          ? 'bg-[#0d6b7a] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        expandedClass === cls._id && expandedTab === 'students' ? 'bg-[#0d6b7a] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}>
                       <Users size={13} /> Students
                       {expandedClass === cls._id && expandedTab === 'students' ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                     </button>
                     <button
                       onClick={() => {
-                        if (expandedClass === cls._id && expandedTab === 'sessions') {
-                          setExpandedClass(null);
-                        } else {
-                          setExpandedClass(cls._id);
-                          setExpandedTab('sessions');
-                        }
+                        if (expandedClass === cls._id && expandedTab === 'sessions') { setExpandedClass(null); }
+                        else { setExpandedClass(cls._id); setExpandedTab('sessions'); }
                       }}
                       className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${
-                        expandedClass === cls._id && expandedTab === 'sessions'
-                          ? 'bg-[#0d6b7a] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        expandedClass === cls._id && expandedTab === 'sessions' ? 'bg-[#0d6b7a] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}>
                       <Calendar size={13} /> Sessions
                       {expandedClass === cls._id && expandedTab === 'sessions' ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -729,24 +717,25 @@ const AdminClasses = () => {
                         {classDetail.class.enrolledStudents.map((student, i) => (
                           <div key={i} className="px-5 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-[#0d6b7a] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
+                                student.status === 'suspended' ? 'bg-red-400' : 'bg-[#0d6b7a]'
+                              }`}>
                                 {student.userId?.name?.charAt(0)?.toUpperCase()}
                               </div>
                               <div>
                                 <p className="font-semibold text-gray-800 text-sm">{student.userId?.name}</p>
-                                  <p className="text-xs text-gray-400">{student.admissionNumber} • {student.grade} • {student.school}</p>
-                                  {student.status === 'suspended' && (
-                                    <div className="mt-1 flex items-center gap-1">
-                                      <span className="text-xs text-red-500 font-semibold">
-                                        🚫 {student.suspendReason || 'Suspended'}
-                                      </span>
-                                      {student.suspendedAt && (
-                                        <span className="text-xs text-gray-400">
-                                          • {new Date(student.suspendedAt).toLocaleDateString('en-GB')}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
+                                <p className="text-xs text-gray-400">{student.admissionNumber} • {student.grade} • {student.school}</p>
+                                {student.status === 'suspended' && (
+                                  <div className="mt-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1 inline-flex items-center gap-1.5">
+                                    <span className="text-xs text-red-600 font-bold">🚫 Suspended</span>
+                                    {student.suspendReason && (
+                                      <span className="text-xs text-red-500">— {student.suspendReason}</span>
+                                    )}
+                                    {student.suspendedAt && (
+                                      <span className="text-xs text-gray-400">• {new Date(student.suspendedAt).toLocaleDateString('en-GB')}</span>
+                                    )}
+                                  </div>
+                                )}
                                 {student.parentId && (
                                   <p className="text-xs text-gray-400 mt-0.5">
                                     👨‍👩‍👧 {student.parentId?.userId?.name}
@@ -765,16 +754,12 @@ const AdminClasses = () => {
                               </span>
                               <button
                                 onClick={() => {
-                                  const action = student.status === 'active' ? 'suspend' : 'activate';
-                                  if (action === 'suspend') {
-                                    const reason = window.prompt(`Reason for suspending ${student.userId?.name}:\n(This will be shown to the student)`);
-                                    if (reason === null) return; // cancelled
-                                    if (window.confirm(`Suspend ${student.userId?.name}?\nReason: ${reason || 'No reason provided'}`)) {
-                                      suspendMutation.mutate({ studentId: student._id, action, reason });
-                                    }
+                                  if (student.status === 'active') {
+                                    setSuspendReason('');
+                                    setSuspendModal(student);
                                   } else {
                                     if (window.confirm(`Activate ${student.userId?.name}? This will remove their suspension.`)) {
-                                      suspendMutation.mutate({ studentId: student._id, action });
+                                      suspendMutation.mutate({ studentId: student._id, action: 'activate' });
                                     }
                                   }
                                 }}
@@ -812,9 +797,7 @@ const AdminClasses = () => {
               <div className="bg-white rounded-xl p-12 text-center">
                 <p className="text-4xl mb-3">📚</p>
                 <p className="text-gray-500 font-semibold">No classes found</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  {search ? 'Try a different search term' : 'Create your first class to get started'}
-                </p>
+                <p className="text-gray-400 text-sm mt-1">{search ? 'Try a different search term' : 'Create your first class to get started'}</p>
               </div>
             )}
           </div>

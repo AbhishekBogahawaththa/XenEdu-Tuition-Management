@@ -201,6 +201,82 @@ const deleteStudent = async (req, res) => {
   }
 };
 
+
+// @POST /api/auth/student-register - PUBLIC
+const studentRegister = async (req, res) => {
+  try {
+    const { name, email, password, school, grade, medium, stream, contactNumber } = req.body;
+    if (!name || !email || !password || !school || !grade || !medium || !stream) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Email already registered' });
+
+    const studentUser = await User.create({ name, email, password, role: 'student' });
+    const student = await Student.create({
+      userId: studentUser._id,
+      school, grade, medium, stream,
+      status: 'pending',
+      contactNumber,
+    });
+
+    res.status(201).json({
+      message: 'Registration submitted! Admin will review and approve your account.',
+      studentId: student._id,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @GET /api/students/pending - Admin only
+const getPendingStudents = async (req, res) => {
+  try {
+    const students = await Student.find({ status: 'pending' })
+      .populate('userId', 'name email createdAt')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ count: students.length, students });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @PATCH /api/students/:id/approve - Admin only
+// @PATCH /api/students/:id/approve - Admin only
+const approveStudent = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    if (!student.admissionNumber) {
+      const count = await Student.countDocuments({ status: { $ne: 'pending' } });
+      student.admissionNumber = 'XE' + String(count + 1).padStart(4, '0');
+    }
+    student.status = 'active';
+    await student.save();
+
+    await student.populate('userId', 'name email');
+    res.status(200).json({ message: 'Student approved successfully!', student });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @DELETE /api/students/:id/reject - Admin only
+const rejectStudent = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id).populate('userId');
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    await User.findByIdAndDelete(student.userId._id);
+    await Student.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ message: 'Registration rejected and removed.' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createStudent,
   getStudents,
@@ -208,4 +284,8 @@ module.exports = {
   updateStudent,
   updateStatus,
   deleteStudent,
+  studentRegister,
+  getPendingStudents,
+  approveStudent,
+  rejectStudent,
 };
