@@ -9,6 +9,7 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  savePushToken,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -19,7 +20,7 @@ router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/change-password', protect, changePassword);
-
+router.post('/push-token', protect, savePushToken);
 router.post('/student-register', studentRegister);
 
 module.exports = router;

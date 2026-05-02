@@ -3,12 +3,8 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    resetPasswordToken: {
-        type: String,
-      },
-      resetPasswordExpires: {
-        type: Date,
-      },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -32,14 +28,9 @@ const userSchema = new mongoose.Schema(
       enum: ['admin', 'teacher', 'student', 'parent'],
       default: 'student',
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    refreshToken: {
-      type: String,
-      select: false,
-    },
+    isActive: { type: Boolean, default: true },
+    refreshToken: { type: String, select: false },
+    pushToken: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -1,6 +1,6 @@
 ﻿import axios from 'axios';
 
-const BASE_URL = 'https://' + window.location.hostname + ':5000/api';
+const BASE_URL = 'https://xenedu-tuition-management-production.up.railway.app/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -28,7 +28,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         const res = await axios.post(
-          'https://' + window.location.hostname + ':5000/api/auth/refresh',
+          'https://xenedu-tuition-management-production.up.railway.app/api/auth/refresh',
           { refreshToken }
         );
         localStorage.setItem('accessToken', res.data.accessToken);

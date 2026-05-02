@@ -84,6 +84,18 @@ const getMe = async (req, res) => {
   });
 };
 
+// @POST /api/auth/push-token — save expo push token
+const savePushToken = async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    if (!pushToken) return res.status(400).json({ message: 'Push token required' });
+    await User.findByIdAndUpdate(req.user._id, { pushToken });
+    res.status(200).json({ message: 'Push token saved' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @POST /api/auth/forgot-password
 const forgotPassword = async (req, res) => {
   try {
@@ -108,7 +120,6 @@ const forgotPassword = async (req, res) => {
     res.status(500).json({ message: 'Failed to send reset email' });
   }
 };
-
 
 // @POST /api/auth/reset-password
 const resetPassword = async (req, res) => {
@@ -146,41 +157,23 @@ const resetPassword = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Both passwords are required' });
     }
-
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
-
     if (currentPassword === newPassword) {
       return res.status(400).json({ message: 'New password must be different from current' });
     }
-
-    // ← Must select +password to get hashed password from DB
     const user = await User.findById(req.user._id).select('+password');
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (!user.password) {
-      return res.status(400).json({ message: 'Cannot verify current password' });
-    }
-
-    // Compare using bcrypt directly
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.password) return res.status(400).json({ message: 'Cannot verify current password' });
     const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-
-    // Hash new password
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save({ validateBeforeSave: false });
-
     res.status(200).json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error.message);
@@ -190,5 +183,5 @@ const changePassword = async (req, res) => {
 
 module.exports = {
   register, login, refresh, logout, getMe,
-  forgotPassword, resetPassword, changePassword,
+  savePushToken, forgotPassword, resetPassword, changePassword,
 };

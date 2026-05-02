@@ -2,7 +2,9 @@ const PaymentRequest = require('../models/PaymentRequest');
 const FeeRecord = require('../models/FeeRecord');
 const Payment = require('../models/Payment');
 const Student = require('../models/Student');
+const User = require('../models/User');
 const mongoose = require('mongoose');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 // @POST /api/payment-requests ← student submits
 const submitPaymentRequest = async (req, res) => {
@@ -60,7 +62,6 @@ const submitPaymentRequest = async (req, res) => {
         receiptNumber,
       });
 
-      // Mark this specific month's fee as paid
       if (resolvedFeeRecordId) {
         await FeeRecord.findByIdAndUpdate(resolvedFeeRecordId, {
           status: 'paid', paidAt: new Date(),
@@ -72,7 +73,6 @@ const submitPaymentRequest = async (req, res) => {
         );
       }
 
-      // Create payment record
       await Payment.create({
         feeRecordId: resolvedFeeRecordId || new mongoose.Types.ObjectId(),
         studentId: student._id,
@@ -84,9 +84,23 @@ const submitPaymentRequest = async (req, res) => {
         collectedBy: req.user._id,
       });
 
-      // ── Try re-enroll — only succeeds if ALL months now paid ─
       const { reEnrollAfterPayment } = require('../middleware/paymentEnforcer');
       const reEnrollResult = await reEnrollAfterPayment(student._id, classId);
+
+      // Send push notification to student
+      try {
+        const studentUser = await User.findById(student.userId);
+        if (studentUser?.pushToken) {
+          await sendPushNotification(
+            studentUser.pushToken,
+            'Payment Approved',
+            `Rs. ${Number(amount).toLocaleString()} payment approved. Receipt: ${receiptNumber}`,
+            { type: 'payment_approved', receiptNumber }
+          );
+        }
+      } catch (pushErr) {
+        console.log('Push notification error:', pushErr.message);
+      }
 
       return res.status(201).json({
         success: true,
@@ -203,12 +217,26 @@ const approvePaymentRequest = async (req, res) => {
     request.reviewedAt = new Date();
     await request.save();
 
-    // ── Try re-enroll — only succeeds if ALL months now paid ──
     const { reEnrollAfterPayment } = require('../middleware/paymentEnforcer');
     const reEnrollResult = await reEnrollAfterPayment(
       request.studentId._id,
       request.classId._id
     );
+
+    // Send push notification to student
+    try {
+      const studentUser = await User.findById(request.studentId.userId);
+      if (studentUser?.pushToken) {
+        await sendPushNotification(
+          studentUser.pushToken,
+          'Payment Approved',
+          `Rs. ${Number(request.amount).toLocaleString()} for ${request.classId.name} has been approved. Receipt: ${payment.receiptNumber}`,
+          { type: 'payment_approved', receiptNumber: payment.receiptNumber }
+        );
+      }
+    } catch (pushErr) {
+      console.log('Push notification error:', pushErr.message);
+    }
 
     res.json({
       message: 'Payment approved',
@@ -226,7 +254,9 @@ const approvePaymentRequest = async (req, res) => {
 const rejectPaymentRequest = async (req, res) => {
   try {
     const { reason } = req.body;
-    const request = await PaymentRequest.findById(req.params.id);
+    const request = await PaymentRequest.findById(req.params.id)
+      .populate('studentId')
+      .populate('classId');
     if (!request) return res.status(404).json({ message: 'Not found' });
     if (request.status !== 'pending') {
       return res.status(400).json({ message: `Already ${request.status}` });
@@ -236,6 +266,22 @@ const rejectPaymentRequest = async (req, res) => {
     request.reviewedBy = req.user._id;
     request.reviewedAt = new Date();
     await request.save();
+
+    // Send push notification to student
+    try {
+      const studentUser = await User.findById(request.studentId.userId);
+      if (studentUser?.pushToken) {
+        await sendPushNotification(
+          studentUser.pushToken,
+          'Payment Rejected',
+          `Your payment for ${request.classId?.name} was rejected.${reason ? ` Reason: ${reason}` : ''}`,
+          { type: 'payment_rejected' }
+        );
+      }
+    } catch (pushErr) {
+      console.log('Push notification error:', pushErr.message);
+    }
+
     res.json({ message: 'Payment rejected' });
   } catch (e) {
     res.status(500).json({ message: e.message });
