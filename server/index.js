@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const https = require('https');
-const http = require('http');
-const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
@@ -46,23 +43,19 @@ setTimeout(async () => {
       month: { $gt: currentMonth },
     });
     if (result.deletedCount > 0) {
-      console.log(`🧹 Cleaned up ${result.deletedCount} future fee records`);
+      console.log(`Cleaned up ${result.deletedCount} future fee records`);
     } else {
-      console.log('✅ No future fee records found to clean up');
+      console.log('No future fee records found to clean up');
     }
   } catch (err) {
     console.error('Cleanup error:', err.message);
   }
 }, 5000);
 
-// ── CORS ──────────────────────────────────────────────────────────
+// ── CORS — allow all origins ──────────────────────────────────────
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    callback(null, true);
   },
   credentials: true,
 }));
@@ -93,27 +86,9 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route ' + req.originalUrl + ' not found' });
 });
 
-// ── Ports ─────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
-const HTTP_PORT = 5001;
+// ── Single HTTP server (Railway handles HTTPS) ────────────────────
+const PORT = process.env.PORT || 5001;
 
-// HTTPS for web (port 5000)
-try {
-  const httpsOptions = {
-    key: fs.readFileSync('./192.168.0.72+2-key.pem'),
-    cert: fs.readFileSync('./192.168.0.72+2.pem'),
-  };
-  https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on HTTPS port ${PORT} (web)`);
-  });
-} catch (e) {
-  console.log('HTTPS cert not found, falling back to HTTP:', e.message);
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on HTTP port ${PORT}`);
-  });
-}
-
-// HTTP for mobile (port 5001)
-http.createServer(app).listen(HTTP_PORT, '0.0.0.0', () => {
-  console.log(`Server running on HTTP port ${HTTP_PORT} (mobile)`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`XenEdu server running on port ${PORT}`);
 });
