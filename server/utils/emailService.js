@@ -1,36 +1,24 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const createTransporter = () => {
-  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_PASS) {
-    console.warn('BREVO_SMTP_USER or BREVO_SMTP_PASS not set');
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set');
     return null;
   }
-  return nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_PASS,
-    },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
-  });
+  return new Resend(process.env.RESEND_API_KEY);
 };
 
-const FROM_EMAIL = `"XenEdu Institute" <${process.env.BREVO_SMTP_USER || 'noreply@xenedu.com'}>`;
+const FROM_EMAIL = 'XenEdu Institute <onboarding@resend.dev>';
 
 const sendCredentials = async ({
   studentName, studentEmail, parentName, parentEmail,
   admissionNumber, studentPassword, parentPassword,
 }) => {
-  const transporter = createTransporter();
-  if (!transporter) { console.error('Email transporter not configured'); return; }
+  const resend = getResend();
+  if (!resend) { console.error('Resend not configured'); return; }
 
   try {
-    await transporter.sendMail({
+    await resend.emails.send({
       from: FROM_EMAIL,
       to: studentEmail,
       subject: 'Welcome to XenEdu - Your Login Credentials',
@@ -80,7 +68,7 @@ const sendCredentials = async ({
 
   if (parentPassword && parentEmail) {
     try {
-      await transporter.sendMail({
+      await resend.emails.send({
         from: FROM_EMAIL,
         to: parentEmail,
         subject: 'XenEdu - Parent Portal Access',
@@ -127,10 +115,10 @@ const sendCredentials = async ({
 };
 
 const sendAttendanceAlert = async ({ parentName, parentEmail, studentName, className, percentage }) => {
-  const transporter = createTransporter();
-  if (!transporter) return;
+  const resend = getResend();
+  if (!resend) return;
   try {
-    await transporter.sendMail({
+    await resend.emails.send({
       from: FROM_EMAIL,
       to: parentEmail,
       subject: `Attendance Alert - ${studentName}`,
@@ -163,10 +151,10 @@ const sendAttendanceAlert = async ({ parentName, parentEmail, studentName, class
 };
 
 const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
-  const transporter = createTransporter();
-  if (!transporter) return;
+  const resend = getResend();
+  if (!resend) return;
   try {
-    await transporter.sendMail({
+    await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject: 'XenEdu - Reset Your Password',
@@ -198,7 +186,7 @@ const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
     console.log('Password reset email sent to:', email);
   } catch (err) {
     console.error('Failed to send reset email:', err.message);
-    console.error('Error code:', err.code);
+    console.error('Error details:', err);
   }
 };
 
