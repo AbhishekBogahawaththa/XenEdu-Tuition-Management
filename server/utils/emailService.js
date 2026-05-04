@@ -8,7 +8,7 @@ const getResend = () => {
   return new Resend(process.env.RESEND_API_KEY);
 };
 
-const FROM_EMAIL = 'XenEdu Institute <onboarding@resend.dev>';
+const FROM_EMAIL = 'XenEdu Institute <noreply@ceylonbyte.live>';
 
 const sendCredentials = async ({
   studentName, studentEmail, parentName, parentEmail,
