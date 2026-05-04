@@ -132,14 +132,17 @@ const approveRegistration = async (req, res) => {
       });
     }
 
-    const student = await Student.create({
-      userId: studentUser._id,
-      parentId: parent._id,
-      school: request.school,
-      grade: request.grade,
-      medium: request.medium,
-      stream: request.stream,
-    });
+    let student = await Student.findOne({ userId: studentUser._id });
+    if (!student) {
+      student = await Student.create({
+        userId: studentUser._id,
+        parentId: parent._id,
+        school: request.school,
+        grade: request.grade,
+        medium: request.medium,
+        stream: request.stream,
+      });
+    }
 
     parent.students.push(student._id);
     await parent.save();
