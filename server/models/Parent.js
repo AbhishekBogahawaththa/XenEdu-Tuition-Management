@@ -9,7 +9,6 @@ const parentSchema = new mongoose.Schema(
     },
     contactNumber: {
       type: String,
-      required: [true, 'Contact number is required'],
       trim: true,
     },
     address: {
