@@ -100,12 +100,15 @@ const approveRegistration = async (req, res) => {
     const studentPassword = generatePassword();
     const parentPassword = generatePassword();
 
-    const studentUser = await User.create({
-      name: request.studentName,
-      email: request.studentEmail,
-      password: studentPassword,
-      role: 'student',
-    });
+    let studentUser = await User.findOne({ email: request.studentEmail });
+    if (!studentUser) {
+      studentUser = await User.create({
+        name: request.studentName,
+        email: request.studentEmail,
+        password: studentPassword,
+        role: 'student',
+      });
+    }
 
     let parentUser = await User.findOne({ email: request.parentEmail });
     let isNewParent = false;
