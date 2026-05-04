@@ -1,40 +1,25 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const createTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('EMAIL_USER or EMAIL_PASS not set');
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set');
     return null;
   }
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
-  });
+  return new Resend(process.env.RESEND_API_KEY);
 };
+
+const FROM_EMAIL = 'XenEdu Institute <onboarding@resend.dev>';
 
 const sendCredentials = async ({
   studentName, studentEmail, parentName, parentEmail,
   admissionNumber, studentPassword, parentPassword,
 }) => {
-  const transporter = createTransporter();
-  if (!transporter) {
-    console.error('Email transporter not configured');
-    return;
-  }
+  const resend = getResend();
+  if (!resend) { console.error('Resend not configured'); return; }
 
   try {
-    await transporter.sendMail({
-      from: `"XenEdu Institute" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: FROM_EMAIL,
       to: studentEmail,
       subject: 'Welcome to XenEdu - Your Login Credentials',
       html: `
@@ -83,8 +68,8 @@ const sendCredentials = async ({
 
   if (parentPassword && parentEmail) {
     try {
-      await transporter.sendMail({
-        from: `"XenEdu Institute" <${process.env.EMAIL_USER}>`,
+      await resend.emails.send({
+        from: FROM_EMAIL,
         to: parentEmail,
         subject: 'XenEdu - Parent Portal Access',
         html: `
@@ -130,11 +115,11 @@ const sendCredentials = async ({
 };
 
 const sendAttendanceAlert = async ({ parentName, parentEmail, studentName, className, percentage }) => {
-  const transporter = createTransporter();
-  if (!transporter) return;
+  const resend = getResend();
+  if (!resend) return;
   try {
-    await transporter.sendMail({
-      from: `"XenEdu Institute" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: FROM_EMAIL,
       to: parentEmail,
       subject: `Attendance Alert - ${studentName}`,
       html: `
@@ -166,17 +151,18 @@ const sendAttendanceAlert = async ({ parentName, parentEmail, studentName, class
 };
 
 const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
-  const transporter = createTransporter();
-  if (!transporter) return;
+  const resend = getResend();
+  if (!resend) return;
   try {
-    await transporter.sendMail({
-      from: `"XenEdu Institute" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: FROM_EMAIL,
       to: email,
       subject: 'XenEdu - Reset Your Password',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto;">
           <div style="background: #0d6b7a; padding: 32px; border-radius: 16px 16px 0 0; text-align: center;">
             <h1 style="color: #F5C518; margin: 0; font-size: 32px;">XenEdu</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">A/L Tuition Management System</p>
           </div>
           <div style="background: #f9f9f9; padding: 32px; border-radius: 0 0 16px 16px; border: 1px solid #e0e0e0;">
             <h2 style="color: #1a1a1a;">Reset Your Password</h2>
@@ -199,10 +185,9 @@ const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
     });
     console.log('Password reset email sent to:', email);
   } catch (err) {
-  console.error('Failed to send reset email:', err.message);
-  console.error('Error code:', err.code);
-  console.error('Error response:', err.response);
-}
+    console.error('Failed to send reset email:', err.message);
+    console.error('Error details:', err);
+  }
 };
 
 module.exports = { sendCredentials, sendAttendanceAlert, sendPasswordResetEmail };
