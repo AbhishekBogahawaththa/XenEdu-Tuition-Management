@@ -22,7 +22,7 @@ router.put('/:id', authorize('admin'), updateStudent);
 router.patch('/:id/status', authorize('admin'), updateStatus);
 router.delete('/:id', authorize('admin'), deleteStudent);
 
-router.get('/pending', authorize('admin'), getPendingStudents);
+router.get('/pending', protect, authorize('admin'), getPendingStudents);
 router.patch('/:id/approve', authorize('admin'), approveStudent);
 router.delete('/:id/reject', authorize('admin'), rejectStudent);
 
