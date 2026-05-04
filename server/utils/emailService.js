@@ -199,8 +199,10 @@ const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
     });
     console.log('Password reset email sent to:', email);
   } catch (err) {
-    console.error('Failed to send reset email:', err.message);
-  }
+  console.error('Failed to send reset email:', err.message);
+  console.error('Error code:', err.code);
+  console.error('Error response:', err.response);
+}
 };
 
 module.exports = { sendCredentials, sendAttendanceAlert, sendPasswordResetEmail };
