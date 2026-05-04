@@ -9,24 +9,17 @@ const generatePassword = () => {
   const lowercase = 'abcdefghjkmnpqrstuvwxyz';
   const numbers = '23456789';
   const special = '@#$!';
-
   const getRandom = (str) => str[Math.floor(Math.random() * str.length)];
-
   const pwd = [
-    getRandom(uppercase),
-    getRandom(uppercase),
-    getRandom(lowercase),
-    getRandom(lowercase),
-    getRandom(numbers),
-    getRandom(numbers),
-    getRandom(special),
-    getRandom(uppercase + lowercase + numbers),
+    getRandom(uppercase), getRandom(uppercase),
+    getRandom(lowercase), getRandom(lowercase),
+    getRandom(numbers), getRandom(numbers),
+    getRandom(special), getRandom(uppercase + lowercase + numbers),
   ];
-
   return pwd.sort(() => Math.random() - 0.5).join('');
 };
 
-// @POST /api/register/apply  ← public, no token needed
+// @POST /api/register/apply ← public, no token needed
 const applyRegistration = async (req, res) => {
   try {
     const {
@@ -35,6 +28,7 @@ const applyRegistration = async (req, res) => {
       parentName, parentEmail, parentContact, parentAddress
     } = req.body;
 
+    // Check for existing pending request
     const existing = await RegistrationRequest.findOne({
       studentEmail,
       status: 'pending'
@@ -45,6 +39,7 @@ const applyRegistration = async (req, res) => {
       });
     }
 
+    // Check if already registered as a user
     const existingUser = await User.findOne({ email: studentEmail });
     if (existingUser) {
       return res.status(400).json({
@@ -67,25 +62,19 @@ const applyRegistration = async (req, res) => {
   }
 };
 
-// @GET /api/register/pending  ← admin only
+// @GET /api/register/pending ← admin only
 const getPendingRequests = async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status ? { status } : {};
-
-    const requests = await RegistrationRequest.find(filter)
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      count: requests.length,
-      requests
-    });
+    const requests = await RegistrationRequest.find(filter).sort({ createdAt: -1 });
+    res.status(200).json({ count: requests.length, requests });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @PATCH /api/register/:id/approve  ← admin only
+// @PATCH /api/register/:id/approve ← admin only
 const approveRegistration = async (req, res) => {
   try {
     const request = await RegistrationRequest.findById(req.params.id);
@@ -100,7 +89,9 @@ const approveRegistration = async (req, res) => {
     const studentPassword = generatePassword();
     const parentPassword = generatePassword();
 
+    // ── Student User ──────────────────────────────────────────
     let studentUser = await User.findOne({ email: request.studentEmail });
+    let isNewStudent = false;
     if (!studentUser) {
       studentUser = await User.create({
         name: request.studentName,
@@ -108,11 +99,12 @@ const approveRegistration = async (req, res) => {
         password: studentPassword,
         role: 'student',
       });
+      isNewStudent = true;
     }
 
+    // ── Parent User ───────────────────────────────────────────
     let parentUser = await User.findOne({ email: request.parentEmail });
     let isNewParent = false;
-
     if (!parentUser) {
       parentUser = await User.create({
         name: request.parentName,
@@ -123,6 +115,7 @@ const approveRegistration = async (req, res) => {
       isNewParent = true;
     }
 
+    // ── Parent Record ─────────────────────────────────────────
     let parent = await Parent.findOne({ userId: parentUser._id });
     if (!parent) {
       parent = await Parent.create({
@@ -132,6 +125,7 @@ const approveRegistration = async (req, res) => {
       });
     }
 
+    // ── Student Record ────────────────────────────────────────
     let student = await Student.findOne({ userId: studentUser._id });
     if (!student) {
       student = await Student.create({
@@ -144,14 +138,19 @@ const approveRegistration = async (req, res) => {
       });
     }
 
-    parent.students.push(student._id);
-    await parent.save();
+    // ── Link student to parent (avoid duplicates) ─────────────
+    if (!parent.students.includes(student._id)) {
+      parent.students.push(student._id);
+      await parent.save();
+    }
 
+    // ── Mark request as approved ──────────────────────────────
     request.status = 'approved';
     request.approvedBy = req.user._id;
     request.approvedAt = new Date();
     await request.save();
 
+    // ── Send credentials email ────────────────────────────────
     try {
       await sendCredentials({
         studentName: request.studentName,
@@ -159,7 +158,7 @@ const approveRegistration = async (req, res) => {
         parentName: request.parentName,
         parentEmail: request.parentEmail,
         admissionNumber: student.admissionNumber,
-        studentPassword,
+        studentPassword: isNewStudent ? studentPassword : '(already sent)',
         parentPassword: isNewParent ? parentPassword : null,
       });
       console.log('Credentials email sent successfully');
@@ -180,15 +179,15 @@ const approveRegistration = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('Approve registration error:', error.message);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @PATCH /api/register/:id/reject  ← admin only
+// @PATCH /api/register/:id/reject ← admin only
 const rejectRegistration = async (req, res) => {
   try {
     const { reason } = req.body;
-
     const request = await RegistrationRequest.findById(req.params.id);
     if (!request) {
       return res.status(404).json({ message: 'Registration request not found' });
@@ -196,11 +195,9 @@ const rejectRegistration = async (req, res) => {
     if (request.status !== 'pending') {
       return res.status(400).json({ message: `Request already ${request.status}` });
     }
-
     request.status = 'rejected';
     request.rejectedReason = reason || 'No reason provided';
     await request.save();
-
     res.status(200).json({
       message: 'Registration rejected',
       reason: request.rejectedReason,
